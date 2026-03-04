@@ -28,6 +28,8 @@ class UGOVisualizer {
     const { Polyline3DElement, AltitudeMode } =
       await google.maps.importLibrary('maps3d');
 
+    const frames = recording.frames;
+
     // ── 1. Build curtain coordinates ──────────────────────────────────────
     // Use the camera eye position (not the look-at center) so that rotating
     // in place produces a circle, zooming produces a vertical line, etc.
