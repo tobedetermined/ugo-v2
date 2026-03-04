@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UGO — User Generated Orbit</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="map-container"></div>
+
+  <!-- Main HUD panel -->
+  <div id="hud">
+    <div id="hud-brand">
+      <span id="hud-title">UGO</span>
+      <span id="hud-tagline">User Generated Orbit</span>
+    </div>
+
+    <div id="hud-controls">
+      <button id="btn-record">● REC</button>
+      <button id="btn-stop" disabled>■ STOP</button>
+      <button id="btn-clear" disabled>↺ RESET</button>
+    </div>
+
+    <div id="hud-stats">
+      <div id="stat-status">Ready to record</div>
+      <div id="stat-frames" class="hidden"></div>
+      <div id="stat-duration" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- Camera state readout -->
+  <div id="camera-hud">
+    <div class="c-row"><span class="c-label">lat</span><span id="c-lat">—</span></div>
+    <div class="c-row"><span class="c-label">Long</span><span id="c-lng">—</span></div>
+    <div class="c-row"><span class="c-label">alt</span><span id="c-alt">—</span></div>
+    <div class="c-row"><span class="c-label">range</span><span id="c-range">—</span></div>
+    <div class="c-row"><span class="c-label">tilt</span><span id="c-tilt">—</span></div>
+    <div class="c-row"><span class="c-label">Heading</span><span id="c-hdg">—</span></div>
+  </div>
+
+  <script src="js/recorder.js"></script>
+  <script src="js/visualizer.js"></script>
+  <script src="js/app.js"></script>
+
+  <!--
+    Replace YOUR_API_KEY_HERE with your Google Maps API key.
+    Enable: Maps JavaScript API
+    Restrict to: localhost, 127.0.0.1
+  -->
+  <script
+    async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDfaXNo8TK8XSuIqeu-NyxFU2zQqNaCkxo&v=alpha&callback=initMap">
+  </script>
+
+</body>
+</html>
