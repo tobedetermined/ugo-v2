@@ -13,6 +13,12 @@ let map;
 let recorder;
 let visualizer;
 let currentRecording = null;
+let _appState = 'ready'; // 'ready' | 'recording' | 'paused' | 'visualised'
+
+const _metrics = {
+  elevationRequests:  0,
+  elevationLocations: 0,
+};
 
 // Called by the Maps JS API once it has loaded (callback=initMap in script tag)
 async function initMap() {
@@ -40,9 +46,10 @@ async function initMap() {
     .forEach(evt => map.addEventListener(evt, _updateCameraReadout));
 
   // Button wiring
-  document.getElementById('btn-record').addEventListener('click', _startRecording);
+  document.getElementById('btn-record').addEventListener('click', _onRecordButton);
   document.getElementById('btn-stop').addEventListener('click',   _stopRecording);
   document.getElementById('btn-clear').addEventListener('click',  _clearRecording);
+  document.getElementById('btn-fill').addEventListener('click',   _toggleFill);
 
   // Prevent buttons from stealing keyboard focus from the map —
   // mousedown is where focus transfer happens, preventDefault stops it
@@ -63,11 +70,15 @@ async function initMap() {
 }
 
 // R       — reset tilt + heading (Google Earth style)
-// Shift+↓ — tilt toward horizon (tilt increases)
-// Shift+↑ — tilt toward top-down (tilt decreases)
+// `       — toggle dev metrics panel
 function _onKeyDown(e) {
   if (e.target.tagName === 'INPUT') return;
   if (document.activeElement !== map) map.focus();
+
+  if (e.key === '`') {
+    document.getElementById('dev-hud').classList.toggle('hidden');
+    return;
+  }
 
   if (e.key === 'r' || e.key === 'R') {
     map.flyCameraTo({
@@ -109,29 +120,36 @@ function _onKeyDown(e) {
 
 // ── Recording flow ────────────────────────────────────────────────────────────
 
-function _startRecording() {
-  currentRecording = null;
-  visualizer.clear();
+function _onRecordButton() {
+  if (_appState === 'ready' || _appState === 'visualised') {
+    // Fresh start — clear any previous visualisation
+    currentRecording = null;
+    visualizer.clear();
+    document.getElementById('btn-fill').classList.remove('active');
 
-  recorder.onFrame = (frameCount, elapsedMs) => {
-    _show('stat-frames',   `${frameCount} frames`);
-    _show('stat-duration', _formatDuration(elapsedMs));
-  };
+    recorder.onFrame = (frameCount, elapsedMs) => {
+      _show('stat-frames',   `${frameCount} frames`);
+      _show('stat-duration', _formatDuration(elapsedMs));
+    };
 
-  recorder.start();
+    recorder.start();
+    _enterState('recording');
 
-  _setButtons({ record: false, stop: true, clear: false });
-  document.getElementById('btn-record').classList.add('recording');
-  _setText('stat-status', '● Recording…');
+  } else if (_appState === 'recording') {
+    recorder.pause();
+    _enterState('paused');
+
+  } else if (_appState === 'paused') {
+    recorder.resume();
+    _enterState('recording');
+  }
 }
 
 async function _stopRecording() {
   currentRecording = recorder.stop();
+  _enterState('ready'); // temporarily reset while rendering
 
-  _setButtons({ record: true, stop: false, clear: false });
-  document.getElementById('btn-record').classList.remove('recording');
-
-  if (!currentRecording || currentRecording.frames.length < 2) {
+  if (!currentRecording || currentRecording.metadata.frameCount < 2) {
     _setText('stat-status', 'No path captured');
     _hide('stat-frames');
     _hide('stat-duration');
@@ -139,21 +157,60 @@ async function _stopRecording() {
   }
 
   _setText('stat-status', 'Rendering path…');
-  await visualizer.renderRecording(currentRecording);
+  try {
+    await visualizer.renderRecording(currentRecording, ({ requests, locations, error }) => {
+      _metrics.elevationRequests  += requests;
+      _metrics.elevationLocations += locations;
+      if (error) _metrics.elevationError = error;
+      _updateDevHud();
+    });
+  } catch (err) {
+    console.error('UGO: renderRecording failed', err);
+  }
 
   const { frameCount, totalDurationMs } = currentRecording.metadata;
   _setText('stat-status', `${frameCount} frames · ${_formatDuration(totalDurationMs)}`);
-  _setButtons({ record: true, stop: false, clear: true });
+  _enterState('visualised');
 }
 
 function _clearRecording() {
   visualizer.clear();
   currentRecording = null;
 
-  _setButtons({ record: true, stop: false, clear: false });
-  _setText('stat-status', 'Ready to record');
-  _hide('stat-frames');
-  _hide('stat-duration');
+  document.getElementById('btn-fill').classList.remove('active');
+  _enterState('ready');
+}
+
+function _enterState(state) {
+  _appState = state;
+  const recBtn = document.getElementById('btn-record');
+  recBtn.classList.remove('recording', 'paused');
+
+  switch (state) {
+    case 'ready':
+      recBtn.textContent = '● REC';
+      _setButtons({ record: true, stop: false, clear: false, fill: false });
+      _setText('stat-status', 'Ready to record');
+      _hide('stat-frames');
+      _hide('stat-duration');
+      break;
+    case 'recording':
+      recBtn.textContent = '⏸ PAUSE';
+      recBtn.classList.add('recording');
+      _setButtons({ record: true, stop: true, clear: false, fill: false });
+      _setText('stat-status', '● Recording…');
+      break;
+    case 'paused':
+      recBtn.textContent = '● REC';
+      recBtn.classList.add('paused');
+      _setButtons({ record: true, stop: true, clear: false, fill: false });
+      _setText('stat-status', '⏸ Paused');
+      break;
+    case 'visualised':
+      recBtn.textContent = '● REC';
+      _setButtons({ record: true, stop: false, clear: true, fill: true });
+      break;
+  }
 }
 
 // ── Camera readout ────────────────────────────────────────────────────────────
@@ -198,10 +255,20 @@ async function _onSearch(e) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function _setButtons({ record, stop, clear }) {
+function _toggleFill() {
+  const btn     = document.getElementById('btn-fill');
+  const isOn    = btn.classList.toggle('active');
+  visualizer.setFillVisible(isOn);
+  map.focus();
+}
+
+function _setButtons({ record, stop, clear, fill }) {
   document.getElementById('btn-record').disabled = !record;
   document.getElementById('btn-stop').disabled   = !stop;
   document.getElementById('btn-clear').disabled  = !clear;
+  if (fill !== undefined) {
+    document.getElementById('btn-fill').disabled = !fill;
+  }
 }
 
 function _setText(id, text) {
@@ -216,6 +283,13 @@ function _show(id, text) {
 
 function _hide(id) {
   document.getElementById(id).classList.add('hidden');
+}
+
+function _updateDevHud() {
+  document.getElementById('dev-elev-requests').textContent  = _metrics.elevationRequests;
+  document.getElementById('dev-elev-locations').textContent = _metrics.elevationLocations;
+  const errEl = document.getElementById('dev-elev-error');
+  errEl.textContent = _metrics.elevationError || '';
 }
 
 function _formatDuration(ms) {

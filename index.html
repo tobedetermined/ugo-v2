@@ -21,6 +21,7 @@
       <button id="btn-record">● REC</button>
       <button id="btn-stop" disabled>■ STOP</button>
       <button id="btn-clear" disabled>↺ RESET</button>
+      <button id="btn-fill" disabled>◧ FILL</button>
     </div>
 
     <div id="hud-stats">
@@ -45,6 +46,14 @@
     <div class="c-row"><span class="c-label">range</span><span id="c-range">—</span></div>
     <div class="c-row"><span class="c-label">tilt</span><span id="c-tilt">—</span></div>
     <div class="c-row"><span class="c-label">Heading</span><span id="c-hdg">—</span></div>
+  </div>
+
+  <!-- Dev metrics panel — toggle with backtick -->
+  <div id="dev-hud" class="hidden">
+    <div id="dev-title">DEV METRICS</div>
+    <div class="dev-row"><span class="dev-label">elev requests</span><span id="dev-elev-requests">0</span></div>
+    <div class="dev-row"><span class="dev-label">elev locations</span><span id="dev-elev-locations">0</span></div>
+    <div id="dev-elev-error"></div>
   </div>
 
   <script src="js/recorder.js"></script>
