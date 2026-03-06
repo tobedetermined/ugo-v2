@@ -1,3 +1,6 @@
+/* Tab — hide all UI */
+.ui-hidden { display: none !important; }
+
 /* Hide Google Maps alpha development warning banner */
 .vAygCK-api-load-alpha-banner { display: none !important; }
 

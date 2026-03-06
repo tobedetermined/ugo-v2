@@ -96,18 +96,31 @@ class UGORecorder {
     const range     = this.map.range   || 1000;
     const centerAlt = center.altitude  || 0;
 
-    // Calculate the actual camera eye position in 3D space.
-    // The eye sits at `range` distance from the center, in the direction
-    // opposite to heading (heading + 180°), tilted up by (90° - tilt).
-    const EARTH_R    = 6371000; // metres
+    // Compute the true camera eye position using the spherical direct formula.
+    // This correctly captures rotation-in-place as a circle, zooming as a
+    // vertical line, etc. The flat-Earth approximation was replaced because it
+    // divides by cos(lat) which explodes near the poles and breaks at large ranges.
+    const EARTH_R    = 6371000;
     const tiltRad    = (tiltDeg  * Math.PI) / 180;
     const bearingRad = ((heading + 180) % 360) * Math.PI / 180;
     const latRad     = center.lat * Math.PI / 180;
+    const lngRad     = center.lng * Math.PI / 180;
 
-    const horizDist = range * Math.sin(tiltRad);
-    const eyeLat    = center.lat + (horizDist * Math.cos(bearingRad)) / EARTH_R * (180 / Math.PI);
-    const eyeLng    = center.lng + (horizDist * Math.sin(bearingRad)) / (EARTH_R * Math.cos(latRad)) * (180 / Math.PI);
-    const eyeAlt    = Math.max(centerAlt + range * Math.cos(tiltRad), 1);
+    const horizDist  = range * Math.sin(tiltRad);
+    const angDist    = horizDist / EARTH_R;
+
+    const eyeLatRad  = Math.asin(
+      Math.sin(latRad) * Math.cos(angDist) +
+      Math.cos(latRad) * Math.sin(angDist) * Math.cos(bearingRad)
+    );
+    const eyeLngRad  = lngRad + Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angDist) * Math.cos(latRad),
+      Math.cos(angDist) - Math.sin(latRad) * Math.sin(eyeLatRad)
+    );
+
+    const eyeLat = eyeLatRad * 180 / Math.PI;
+    const eyeLng = eyeLngRad * 180 / Math.PI;
+    const eyeAlt = Math.max(centerAlt + range * Math.cos(tiltRad), 1);
 
     const frame = {
       timestamp: performance.now() - this.segmentStartTime,

@@ -25,10 +25,10 @@ async function initMap() {
   const { Map3DElement, MapMode } = await google.maps.importLibrary('maps3d');
 
   map = new Map3DElement({
-    center:  { lat: 52.939588, lng: 5.053351, altitude: 4 },
-    range:   296,
-    tilt:    64.7,
-    heading: 53.7,
+    center:  { lat: 37.790850, lng: -122.190771, altitude: 0 },
+    range:   159193,
+    tilt:    65.6,
+    heading: 77.2,
     mode:    MapMode.SATELLITE,
   });
 
@@ -74,6 +74,14 @@ async function initMap() {
 function _onKeyDown(e) {
   if (e.target.tagName === 'INPUT') return;
   if (document.activeElement !== map) map.focus();
+
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const els = ['hud', 'search-bar', 'camera-hud'].map(id => document.getElementById(id));
+    const hide = !els[0].classList.contains('ui-hidden');
+    els.forEach(el => el.classList.toggle('ui-hidden', hide));
+    return;
+  }
 
   if (e.key === '`') {
     document.getElementById('dev-hud').classList.toggle('hidden');
@@ -209,6 +217,7 @@ function _enterState(state) {
     case 'visualised':
       recBtn.textContent = '● REC';
       _setButtons({ record: true, stop: false, clear: true, fill: true });
+      document.getElementById('btn-fill').classList.add('active');
       break;
   }
 }

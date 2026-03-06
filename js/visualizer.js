@@ -22,7 +22,7 @@ class UGOVisualizer {
     this._overlays = [];
     this._fillPolys = [];
     this._struts = [];
-    this._fillVisible = false;
+    this._fillVisible = true;
   }
 
   // onMetrics: optional callback({ requests, locations }) fired after each elevation batch
@@ -151,8 +151,9 @@ class UGOVisualizer {
     for (const overlay of this._overlays) {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
-    this._overlays  = [];
-    this._fillPolys = [];
-    this._struts    = [];
+    this._overlays     = [];
+    this._fillPolys    = [];
+    this._struts       = [];
+    this._fillVisible  = true;
   }
 }

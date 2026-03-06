@@ -4,70 +4,107 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UGO — User Generated Orbit</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+      color: #000;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .page {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 48px 40px;
+      background: #fff;
+    }
+
+    /* ── Logo lockup ── */
+    .brand {
+      display: flex;
+      align-items: center;
+    }
+
+.title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(60px, 10vw, 120px);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #ff2020;
+      line-height: 1;
+    }
+
+    /* ── Tagline + description ── */
+    .sub {
+      text-align: center;
+    }
+
+    .tagline {
+      font-size: clamp(13px, 1.6vw, 22px);
+      letter-spacing: 0.28em;
+      color: rgba(0, 0, 0, 0.45);
+      text-transform: uppercase;
+    }
+
+    .description {
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.45);
+      letter-spacing: 0.04em;
+      margin-top: 10px;
+    }
+
+    /* ── Launch button ── */
+    .launch-btn {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 11px 36px;
+      border: 1px solid rgba(255, 50, 50, 0.7);
+      border-radius: 3px;
+      color: #ff5555;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .launch-btn:hover {
+      background: rgba(255, 30, 30, 0.12);
+      border-color: rgba(255, 50, 50, 1);
+    }
+
+    /* ── Controls (hidden for now) ── */
+    .controls { display: none; }
+  </style>
 </head>
 <body>
 
-  <div id="map-container"></div>
+  <div class="page">
 
-  <!-- Main HUD panel -->
-  <div id="hud">
-    <div id="hud-brand">
-      <span id="hud-title">UGO</span>
-      <span id="hud-tagline">User Generated Orbit</span>
+    <div class="brand">
+      <div class="title">U'GO</div>
     </div>
 
-    <div id="hud-controls">
-      <button id="btn-record">● REC</button>
-      <button id="btn-stop" disabled>■ STOP</button>
-      <button id="btn-clear" disabled>↺ RESET</button>
-      <button id="btn-fill" disabled>◧ FILL</button>
+    <div class="sub">
+      <div class="tagline">User Generated Orbit</div>
+      <div class="description">Navigate Google Maps and record your User Generated Orbit.</div>
     </div>
 
-    <div id="hud-stats">
-      <div id="stat-status">Ready to record</div>
-      <div id="stat-frames" class="hidden"></div>
-      <div id="stat-duration" class="hidden"></div>
-    </div>
+    <a class="launch-btn" href="orbit/">Hello San Francisco Bay Area →</a>
 
   </div>
-
-  <!-- Search bar -->
-  <form id="search-bar" autocomplete="off">
-    <input id="search-input" type="text" placeholder="Fly to city…" spellcheck="false">
-    <button type="submit">GO</button>
-  </form>
-
-  <!-- Camera state readout -->
-  <div id="camera-hud">
-    <div class="c-row"><span class="c-label">lat</span><span id="c-lat">—</span></div>
-    <div class="c-row"><span class="c-label">Long</span><span id="c-lng">—</span></div>
-    <div class="c-row"><span class="c-label">alt</span><span id="c-alt">—</span></div>
-    <div class="c-row"><span class="c-label">range</span><span id="c-range">—</span></div>
-    <div class="c-row"><span class="c-label">tilt</span><span id="c-tilt">—</span></div>
-    <div class="c-row"><span class="c-label">Heading</span><span id="c-hdg">—</span></div>
-  </div>
-
-  <!-- Dev metrics panel — toggle with backtick -->
-  <div id="dev-hud" class="hidden">
-    <div id="dev-title">DEV METRICS</div>
-    <div class="dev-row"><span class="dev-label">elev requests</span><span id="dev-elev-requests">0</span></div>
-    <div class="dev-row"><span class="dev-label">elev locations</span><span id="dev-elev-locations">0</span></div>
-    <div id="dev-elev-error"></div>
-  </div>
-
-  <script src="js/recorder.js"></script>
-  <script src="js/visualizer.js"></script>
-  <script src="js/app.js"></script>
-
-  <!--
-    Enable: Maps JavaScript API
-    Restrict to: localhost, 127.0.0.1
-  -->
-  <script
-    async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDfaXNo8TK8XSuIqeu-NyxFU2zQqNaCkxo&v=beta&callback=initMap">
-  </script>
 
 </body>
 </html>
