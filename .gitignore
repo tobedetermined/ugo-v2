@@ -1,6 +1,9 @@
 # Reference images (not needed for the website)
 UGO v1 images/
 
+# Architecture planning doc (local reference only)
+ugo-modern-architecture.md
+
 # macOS
 .DS_Store
 
