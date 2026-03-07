@@ -98,19 +98,19 @@ class UGOVisualizer {
     for (let i = 0; i < frames.length - 1; i++) {
       const a    = frames[i];
       const b    = frames[i + 1];
-      const aTop = a.eye.altitude - elevations[i];
-      const bTop = b.eye.altitude - elevations[i + 1];
+      const aFloor = Math.max(0, elevations[i]);
+      const bFloor = Math.max(0, elevations[i + 1]);
       const quad = new Polygon3DElement({
         fillColor:             'rgba(255, 30, 30, 0.22)',
         strokeColor:           'rgba(0, 0, 0, 0)',
-        altitudeMode:          AltitudeMode.RELATIVE_TO_GROUND,
+        altitudeMode:          AltitudeMode.ABSOLUTE,
         drawsOccludedSegments: false,
       });
       quad.outerCoordinates = [
-        { lat: a.eye.lat, lng: a.eye.lng, altitude: aTop },
-        { lat: b.eye.lat, lng: b.eye.lng, altitude: bTop },
-        { lat: b.eye.lat, lng: b.eye.lng, altitude: 0 },
-        { lat: a.eye.lat, lng: a.eye.lng, altitude: 0 },
+        { lat: a.eye.lat, lng: a.eye.lng, altitude: a.eye.altitude },
+        { lat: b.eye.lat, lng: b.eye.lng, altitude: b.eye.altitude },
+        { lat: b.eye.lat, lng: b.eye.lng, altitude: bFloor },
+        { lat: a.eye.lat, lng: a.eye.lng, altitude: aFloor },
       ];
       if (this._fillVisible) this.map.appendChild(quad);
       this._overlays.push(quad);
@@ -127,7 +127,7 @@ class UGOVisualizer {
         drawsOccludedSegments: false,
       });
       strut.coordinates = [
-        { lat: f.eye.lat, lng: f.eye.lng, altitude: f.eye.altitude - elevations[i] },
+        { lat: f.eye.lat, lng: f.eye.lng, altitude: f.eye.altitude - Math.max(0, elevations[i]) },
         { lat: f.eye.lat, lng: f.eye.lng, altitude: 0 },
       ];
       if (this._fillVisible) this.map.appendChild(strut);

@@ -10,31 +10,25 @@
 
   <div id="map-container"></div>
 
-  <!-- Main HUD panel -->
-  <div id="hud">
-    <div id="hud-brand">
-      <span id="hud-title">UGO</span>
-      <span id="hud-tagline">User Generated Orbit</span>
+  <!-- Transport panel (draggable) -->
+  <div id="transport">
+    <div id="transport-handle"></div>
+    <div id="hud-stats">
+      <span id="stat-status">Ready to record</span>
     </div>
-
     <div id="hud-controls">
       <button id="btn-record">● REC</button>
       <button id="btn-stop" disabled>■ STOP</button>
-      <button id="btn-clear" disabled>↺ RESET</button>
+      <button id="btn-clear" disabled>↺ CLEAR</button>
       <button id="btn-fill" disabled>◧ FILL</button>
+      <div class="transport-sep"></div>
+      <button id="btn-home">⌂ RESET</button>
     </div>
-
-    <div id="hud-stats">
-      <div id="stat-status">Ready to record</div>
-      <div id="stat-frames" class="hidden"></div>
-      <div id="stat-duration" class="hidden"></div>
-    </div>
-
   </div>
 
   <!-- Search bar -->
   <form id="search-bar" autocomplete="off">
-    <input id="search-input" type="text" placeholder="Fly to city…" spellcheck="false">
+    <input id="search-input" type="text" placeholder="fly to..." spellcheck="false">
     <button type="submit">GO</button>
   </form>
 
@@ -51,8 +45,10 @@
   <!-- Dev metrics panel — toggle with backtick -->
   <div id="dev-hud" class="hidden">
     <div id="dev-title">DEV METRICS</div>
-    <div class="dev-row"><span class="dev-label">elev requests</span><span id="dev-elev-requests">0</span></div>
+    <div class="dev-row"><span class="dev-label">duration</span><span id="dev-duration">—</span></div>
+    <div class="dev-row"><span class="dev-label">frames</span><span id="dev-frames">0</span></div>
     <div class="dev-row"><span class="dev-label">elev locations</span><span id="dev-elev-locations">0</span></div>
+    <div class="dev-row"><span class="dev-label">elev requests</span><span id="dev-elev-requests">0</span></div>
     <div id="dev-elev-error"></div>
   </div>
 

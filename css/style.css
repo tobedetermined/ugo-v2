@@ -29,48 +29,74 @@ html, body {
   height: 100%;
 }
 
-/* ── Main HUD panel (top-left) ── */
-#hud {
+/* ── Transport panel (draggable) ── */
+#transport {
   position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 100;
-  background: rgba(0, 0, 0, 0.78);
+  right: 20px;
+  bottom: 115px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: #2a2a2a;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  padding: 16px 18px;
-  min-width: 190px;
-  color: #fff;
+  border-radius: 6px;
+  width: 130px;
+  transition: opacity 0.4s ease;
+  user-select: none;
 }
 
-/* Brand */
-#hud-brand {
-  margin-bottom: 16px;
+
+#transport-handle {
+  height: 10px;
+  border-radius: 6px 6px 0 0;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
 }
 
-#hud-title {
-  display: block;
-  font-size: 24px;
-  font-weight: bold;
-  letter-spacing: 6px;
-  color: #ff2020;
+#transport-handle:active {
+  cursor: grabbing;
 }
 
-#hud-tagline {
-  display: block;
-  font-size: 8px;
-  letter-spacing: 2.5px;
-  color: rgba(255, 255, 255, 0.3);
-  text-transform: uppercase;
-  margin-top: 3px;
+#transport-handle::after {
+  content: '';
+  width: 22px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1px;
 }
 
-/* Buttons */
+#hud-stats {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+  padding: 8px 10px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#hud-stats .hidden {
+  display: none;
+}
+
 #hud-controls {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  padding: 6px 8px 8px;
+}
+
+.transport-sep {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 2px 0;
 }
 
 #hud-controls button {
@@ -80,10 +106,13 @@ html, body {
   font-family: 'Courier New', Courier, monospace;
   font-size: 11px;
   letter-spacing: 1px;
-  padding: 7px 12px;
+  padding: 0 14px;
+  height: 27px;
+  line-height: 1;
   border-radius: 3px;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
+  white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
 }
 
@@ -119,22 +148,19 @@ html, body {
   50%       { border-color: rgba(255, 20, 20, 1.0); }
 }
 
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.dot-blink {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
 #btn-fill.active {
   background: rgba(255, 30, 30, 0.18) !important;
   border-color: rgba(255, 30, 30, 0.7) !important;
   color: #ff5555 !important;
-}
-
-/* Stats */
-#hud-stats {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.5px;
-  line-height: 1.9;
-}
-
-#hud-stats .hidden {
-  display: none;
 }
 
 /* ── Dev metrics panel (top-right) ── */
@@ -246,7 +272,7 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 4px;
   padding: 10px 14px;
-  font-size: 16px;
+  font-size: 12px;
   font-family: 'Courier New', Courier, monospace;
   color: rgba(255, 255, 255, 0.85);
   line-height: 1.9;
@@ -259,6 +285,7 @@ html, body {
 .c-label {
   color: rgba(255, 255, 255, 0.85);
   text-transform: uppercase;
-  font-size: 15px;
+  font-size: 13px;
   letter-spacing: 0.5px;
+  text-align: right;
 }

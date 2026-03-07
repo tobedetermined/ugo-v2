@@ -7,7 +7,15 @@
  *   ready      → REC enabled, STOP disabled, CLEAR disabled
  *   recording  → REC disabled, STOP enabled,  CLEAR disabled
  *   visualised → REC enabled, STOP disabled,  CLEAR enabled
+ * RESET (home) button is always enabled — not part of the state machine.
  */
+
+const INITIAL_CAMERA = {
+  center:  { lat: 37.790850, lng: -122.190771, altitude: 0 },
+  range:   159193,
+  tilt:    65.6,
+  heading: 77.2,
+};
 
 let map;
 let recorder;
@@ -25,11 +33,8 @@ async function initMap() {
   const { Map3DElement, MapMode } = await google.maps.importLibrary('maps3d');
 
   map = new Map3DElement({
-    center:  { lat: 37.790850, lng: -122.190771, altitude: 0 },
-    range:   159193,
-    tilt:    65.6,
-    heading: 77.2,
-    mode:    MapMode.SATELLITE,
+    ...INITIAL_CAMERA,
+    mode: MapMode.SATELLITE,
   });
 
   document.getElementById('map-container').appendChild(map);
@@ -50,6 +55,7 @@ async function initMap() {
   document.getElementById('btn-stop').addEventListener('click',   _stopRecording);
   document.getElementById('btn-clear').addEventListener('click',  _clearRecording);
   document.getElementById('btn-fill').addEventListener('click',   _toggleFill);
+  document.getElementById('btn-home').addEventListener('click',   _resetCamera);
 
   // Prevent buttons from stealing keyboard focus from the map —
   // mousedown is where focus transfer happens, preventDefault stops it
@@ -67,9 +73,12 @@ async function initMap() {
 
   // Keyboard shortcuts — capture phase so we intercept before the map handles them
   document.addEventListener('keydown', _onKeyDown, true);
+
+  _initDrag();
 }
 
 // R       — reset tilt + heading (Google Earth style)
+// F       — toggle fullscreen
 // `       — toggle dev metrics panel
 function _onKeyDown(e) {
   if (e.target.tagName === 'INPUT') return;
@@ -77,7 +86,7 @@ function _onKeyDown(e) {
 
   if (e.key === 'Tab') {
     e.preventDefault();
-    const els = ['hud', 'search-bar', 'camera-hud'].map(id => document.getElementById(id));
+    const els = ['transport', 'search-bar', 'camera-hud'].map(id => document.getElementById(id));
     const hide = !els[0].classList.contains('ui-hidden');
     els.forEach(el => el.classList.toggle('ui-hidden', hide));
     return;
@@ -85,6 +94,15 @@ function _onKeyDown(e) {
 
   if (e.key === '`') {
     document.getElementById('dev-hud').classList.toggle('hidden');
+    return;
+  }
+
+  if (e.key === 'f' || e.key === 'F') {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
     return;
   }
 
@@ -126,6 +144,41 @@ function _onKeyDown(e) {
   // }
 }
 
+// ── Drag to reposition panel ──────────────────────────────────────────────────
+
+function _initDrag() {
+  const panel  = document.getElementById('transport');
+  const handle = document.getElementById('transport-handle');
+
+  let dragging = false;
+  let originX, originY, panelLeft, panelTop;
+
+  handle.addEventListener('mousedown', e => {
+    const rect = panel.getBoundingClientRect();
+    // Switch from CSS right/transform to explicit left/top on first drag
+    panel.style.right     = 'auto';
+    panel.style.bottom    = 'auto';
+    panel.style.transform = 'none';
+    panel.style.left      = rect.left + 'px';
+    panel.style.top       = rect.top  + 'px';
+
+    dragging  = true;
+    originX   = e.clientX;
+    originY   = e.clientY;
+    panelLeft = rect.left;
+    panelTop  = rect.top;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    panel.style.left = (panelLeft + e.clientX - originX) + 'px';
+    panel.style.top  = (panelTop  + e.clientY - originY) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
+
 // ── Recording flow ────────────────────────────────────────────────────────────
 
 function _onRecordButton() {
@@ -136,8 +189,9 @@ function _onRecordButton() {
     document.getElementById('btn-fill').classList.remove('active');
 
     recorder.onFrame = (frameCount, elapsedMs) => {
-      _show('stat-frames',   `${frameCount} frames`);
-      _show('stat-duration', _formatDuration(elapsedMs));
+      _metrics.frameCount  = frameCount;
+      _metrics.elapsedMs   = elapsedMs;
+      _updateDevHud();
     };
 
     recorder.start();
@@ -159,8 +213,6 @@ async function _stopRecording() {
 
   if (!currentRecording || currentRecording.metadata.frameCount < 2) {
     _setText('stat-status', 'No path captured');
-    _hide('stat-frames');
-    _hide('stat-duration');
     return;
   }
 
@@ -176,8 +228,6 @@ async function _stopRecording() {
     console.error('UGO: renderRecording failed', err);
   }
 
-  const { frameCount, totalDurationMs } = currentRecording.metadata;
-  _setText('stat-status', `${frameCount} frames · ${_formatDuration(totalDurationMs)}`);
   _enterState('visualised');
 }
 
@@ -187,6 +237,20 @@ function _clearRecording() {
 
   document.getElementById('btn-fill').classList.remove('active');
   _enterState('ready');
+}
+
+function _resetCamera() {
+  if (_appState === 'recording' || _appState === 'paused') {
+    recorder.stop();
+  }
+  visualizer.clear();
+  currentRecording = null;
+  document.getElementById('btn-fill').classList.remove('active');
+  _enterState('ready');
+  map.flyCameraTo({
+    endCamera:      INITIAL_CAMERA,
+    durationMillis: 2000,
+  });
 }
 
 function _enterState(state) {
@@ -199,14 +263,12 @@ function _enterState(state) {
       recBtn.textContent = '● REC';
       _setButtons({ record: true, stop: false, clear: false, fill: false });
       _setText('stat-status', 'Ready to record');
-      _hide('stat-frames');
-      _hide('stat-duration');
       break;
     case 'recording':
       recBtn.textContent = '⏸ PAUSE';
       recBtn.classList.add('recording');
       _setButtons({ record: true, stop: true, clear: false, fill: false });
-      _setText('stat-status', '● Recording…');
+      document.getElementById('stat-status').innerHTML = '<span class="dot-blink">●</span> Recording…';
       break;
     case 'paused':
       recBtn.textContent = '● REC';
@@ -217,6 +279,7 @@ function _enterState(state) {
     case 'visualised':
       recBtn.textContent = '● REC';
       _setButtons({ record: true, stop: false, clear: true, fill: true });
+      _setText('stat-status', 'UGO rendered');
       document.getElementById('btn-fill').classList.add('active');
       break;
   }
@@ -295,6 +358,8 @@ function _hide(id) {
 }
 
 function _updateDevHud() {
+  document.getElementById('dev-frames').textContent        = _metrics.frameCount  ?? 0;
+  document.getElementById('dev-duration').textContent      = _metrics.elapsedMs != null ? _formatDuration(_metrics.elapsedMs) : '—';
   document.getElementById('dev-elev-requests').textContent  = _metrics.elevationRequests;
   document.getElementById('dev-elev-locations').textContent = _metrics.elevationLocations;
   const errEl = document.getElementById('dev-elev-error');
