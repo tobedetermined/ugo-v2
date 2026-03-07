@@ -3,3 +3,6 @@ UGO v1 images/
 
 # macOS
 .DS_Store
+
+# Local API key config (never commit)
+orbit/config.js

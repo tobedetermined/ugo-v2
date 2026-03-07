@@ -60,9 +60,17 @@
     Enable: Maps JavaScript API
     Restrict to: localhost, 127.0.0.1
   -->
-  <script
-    async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDfaXNo8TK8XSuIqeu-NyxFU2zQqNaCkxo&v=beta&callback=initMap">
+  <script src="config.js" onerror="void(0)"></script>
+  <script>
+    (function() {
+      var key = (window.GOOGLE_MAPS_DEV_KEY && window.GOOGLE_MAPS_DEV_KEY !== 'PASTE_YOUR_LOCALHOST_KEY_HERE')
+        ? window.GOOGLE_MAPS_DEV_KEY
+        : 'AIzaSyCGDYdH7gyeUccxbqW6KXA0VDJx69lPbBA';
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://maps.googleapis.com/maps/api/js?key=' + key + '&v=beta&callback=initMap';
+      document.head.appendChild(s);
+    })();
   </script>
 
 </body>
