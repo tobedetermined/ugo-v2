@@ -55,6 +55,9 @@ async function initMap() {
   document.getElementById('btn-stop').addEventListener('click',   _stopRecording);
   document.getElementById('btn-clear').addEventListener('click',  _clearRecording);
   document.getElementById('btn-fill').addEventListener('click',   _toggleFill);
+  document.getElementById('btn-save').addEventListener('click',   _saveRecording);
+  document.getElementById('btn-load').addEventListener('click',   () => document.getElementById('file-input').click());
+  document.getElementById('file-input').addEventListener('change', _onFileSelected);
   document.getElementById('btn-home').addEventListener('click',   _resetCamera);
 
   // Prevent buttons from stealing keyboard focus from the map —
@@ -231,6 +234,49 @@ async function _stopRecording() {
   _enterState('visualised');
 }
 
+function _saveRecording() {
+  if (!currentRecording) return;
+  downloadKML(currentRecording);
+}
+
+async function _onFileSelected(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  _setText('stat-status', 'Loading…');
+
+  let recording;
+  try {
+    const text = await file.text();
+    recording  = importKML(text);
+  } catch (err) {
+    _setText('stat-status', err.message);
+    return;
+  }
+
+  if (_appState === 'recording' || _appState === 'paused') {
+    recorder.stop();
+  }
+  visualizer.clear();
+  currentRecording = recording;
+  document.getElementById('btn-fill').classList.remove('active');
+
+  _setText('stat-status', 'Rendering path…');
+  try {
+    await visualizer.renderRecording(currentRecording, ({ requests, locations, error }) => {
+      _metrics.elevationRequests  += requests;
+      _metrics.elevationLocations += locations;
+      if (error) _metrics.elevationError = error;
+      _updateDevHud();
+    });
+  } catch (err) {
+    console.error('UGO: renderRecording failed', err);
+  }
+
+  _enterState('visualised');
+}
+
 function _clearRecording() {
   visualizer.clear();
   currentRecording = null;
@@ -261,24 +307,24 @@ function _enterState(state) {
   switch (state) {
     case 'ready':
       recBtn.textContent = '● REC';
-      _setButtons({ record: true, stop: false, clear: false, fill: false });
+      _setButtons({ record: true, stop: false, clear: false, fill: false, save: false, load: true });
       _setText('stat-status', 'Ready to record');
       break;
     case 'recording':
       recBtn.textContent = '⏸ PAUSE';
       recBtn.classList.add('recording');
-      _setButtons({ record: true, stop: true, clear: false, fill: false });
+      _setButtons({ record: true, stop: true, clear: false, fill: false, save: false, load: false });
       document.getElementById('stat-status').innerHTML = '<span class="dot-blink">●</span> Recording…';
       break;
     case 'paused':
       recBtn.textContent = '● REC';
       recBtn.classList.add('paused');
-      _setButtons({ record: true, stop: true, clear: false, fill: false });
+      _setButtons({ record: true, stop: true, clear: false, fill: false, save: false, load: false });
       _setText('stat-status', '⏸ Paused');
       break;
     case 'visualised':
       recBtn.textContent = '● REC';
-      _setButtons({ record: true, stop: false, clear: true, fill: true });
+      _setButtons({ record: true, stop: false, clear: true, fill: true, save: true, load: true });
       _setText('stat-status', 'UGO rendered');
       document.getElementById('btn-fill').classList.add('active');
       break;
@@ -334,13 +380,13 @@ function _toggleFill() {
   map.focus();
 }
 
-function _setButtons({ record, stop, clear, fill }) {
+function _setButtons({ record, stop, clear, fill, save, load }) {
   document.getElementById('btn-record').disabled = !record;
   document.getElementById('btn-stop').disabled   = !stop;
   document.getElementById('btn-clear').disabled  = !clear;
-  if (fill !== undefined) {
-    document.getElementById('btn-fill').disabled = !fill;
-  }
+  if (fill !== undefined) document.getElementById('btn-fill').disabled = !fill;
+  if (save !== undefined) document.getElementById('btn-save').disabled = !save;
+  if (load !== undefined) document.getElementById('btn-load').disabled = !load;
 }
 
 function _setText(id, text) {
