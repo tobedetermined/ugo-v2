@@ -1,26 +1,18 @@
 /**
- * gist.js — saves UGO data directly to GitHub Gists via the bot token.
- * Token is set inline in index.html for production,
- * and overridden by telemetry-config.js for local dev.
+ * gist.js — saves UGO data via the Cloudflare Worker proxy.
+ * The Worker holds the GitHub token; it never appears in source.
+ * For local dev, set window.UGO_WORKER_URL in telemetry-config.js
+ * to point at your local wrangler dev URL.
  */
 
-async function createGist(filename, content, description) {
-  const token = window.UGO_BOT_TOKEN;
-  if (!token) return;
+const WORKER_URL = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
 
+async function createGist(filename, content, description) {
   try {
-    await fetch('https://api.github.com/gists', {
+    await fetch(WORKER_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        'User-Agent': 'ugo-bot',
-      },
-      body: JSON.stringify({
-        description,
-        public: false,
-        files: { [filename]: { content } },
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content, description }),
     });
   } catch (e) {
     // Silently fail — never disrupt the user experience
