@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UGO — User Generated Orbit</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+      color: #000;
+      font-family: 'Inter', sans-serif;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .page {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 48px 40px;
+      background: #fff;
+    }
+
+    /* ── Logo lockup ── */
+    .brand {
+      display: flex;
+      align-items: center;
+    }
+
+.title {
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(85px, 14.5vw, 155px);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #ff2020;
+      line-height: 1;
+    }
+
+    /* ── Tagline + description ── */
+    .sub {
+      text-align: center;
+      margin-top: -20px;
+    }
+
+    .tagline {
+      font-size: clamp(15px, 1.6vw, 24px);
+      letter-spacing: 0.28em;
+      color: rgba(0, 0, 0, 0.45);
+      text-transform: uppercase;
+    }
+
+    .description {
+      font-size: 21px;
+      color: rgba(0, 0, 0, 1);
+      letter-spacing: 0.04em;
+      margin-top: 10px;
+    }
+
+    /* ── Launch button ── */
+    .launch-btn {
+      display: inline-block;
+      margin-top: 61px;
+      padding: 11px 36px;
+      border: 1px solid rgba(255, 50, 50, 0.7);
+      border-radius: 3px;
+      color: #ff5555;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .launch-btn:hover {
+      background: rgba(255, 30, 30, 0.12);
+      border-color: rgba(255, 50, 50, 1);
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: grid;
+      grid-template-columns: auto auto auto;
+      column-gap: 24px;
+      row-gap: 10px;
+      margin-top: 68px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .control {
+      display: contents;
+    }
+
+    .control-header {
+      text-align: left;
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.04em;
+      padding-bottom: 4px;
+    }
+
+    .control-key {
+      text-align: left;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.02em;
+    }
+
+.control-action {
+      text-align: right;
+      color: rgba(0, 0, 0, 1);
+      letter-spacing: 0.04em;
+    }
+
+    .examples-link {
+      color: #ff2020;
+      text-decoration: none;
+    }
+
+    .examples-link:hover {
+      text-decoration: underline;
+    }
+
+    .control-kb {
+      text-align: left;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.02em;
+      justify-self: start;
+    }
+
+    /* ── Contact section ── */
+    .contact {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: rgba(0, 0, 0, 0.45);
+    }
+
+    .contact a {
+      color: #ff2020;
+    }
+
+    .contact a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+
+    <div class="brand">
+      <div class="title">UGO</div>
+    </div>
+
+    <div class="sub">
+      <div class="description">Visualise your User Generated Orbit</div>
+      <div style="margin-top: 8px; font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">tip: try recording a UGO with the search bar (<a href="https://photos.app.goo.gl/4faA2Z1m21iNPRo57" target="_blank" class="examples-link">examples</a>)</div>
+    </div>
+
+    <a class="launch-btn" href="/" target="_blank">Hello San Francisco Bay Area →</a>
+
+    <div class="controls">
+      <div class="control">
+        <span class="control-action">move:</span>
+        <span class="control-kb">← ↑ → ↓</span>
+        <span class="control-key">click + drag</span>
+      </div>
+      <div class="control">
+        <span class="control-action">tilt:</span>
+        <span class="control-kb">Shift ↑ ↓</span>
+        <span class="control-key">click + drag + <em>shift</em></span>
+      </div>
+      <div class="control">
+        <span class="control-action">rotate:</span>
+        <span class="control-kb">Shift ← →</span>
+        <span class="control-key" style="opacity:0.5">click + drag + <em>shift</em></span>
+      </div>
+      <div class="control">
+        <span class="control-action">fpv:</span>
+        <span class="control-kb"></span>
+        <span class="control-key">click + drag + <em>ctrl</em></span>
+      </div>
+      <div class="control">
+        <span class="control-action" style="margin-top:30px">zoom:</span>
+        <span class="control-kb" style="margin-top:30px">+ / −</span>
+        <span class="control-key" style="margin-top:30px">2-finger drag</span>
+      </div>
+      <div class="control">
+        <span class="control-action">up / down:</span>
+        <span class="control-kb">Shift ← →</span>
+        <span class="control-key">2-finger drag + <em>shift</em></span>
+      </div>
+      <div class="control">
+        <span class="control-action"></span>
+        <span class="control-kb"></span>
+        <span class="control-key"></span>
+      </div>
+      <div class="control">
+        <span class="control-action">center Earth:</span>
+        <span class="control-kb">r</span>
+        <span class="control-key"></span>
+      </div>
+      <div class="control">
+        <span class="control-action" style="margin-top:30px">show / hide UI:</span>
+        <span class="control-kb" style="margin-top:30px">tab</span>
+        <span class="control-key" style="margin-top:30px"></span>
+      </div>
+      <div class="control">
+        <span class="control-action">full screen on / off:</span>
+        <span class="control-kb">f</span>
+        <span class="control-key"></span>
+      </div>
+      <div class="control">
+        <span class="control-action">metrics:</span>
+        <span class="control-kb">'</span>
+        <span class="control-key"></span>
+      </div>
+    </div>
+
+    <div class="contact">
+      Spotted an interesting UGO? Share it → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a>
+    </div>
+
+  </div>
+
+</body>
+</html>
