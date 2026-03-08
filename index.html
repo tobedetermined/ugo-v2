@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UGO — User Generated Orbit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -15,7 +15,7 @@
       overflow: hidden;
       background: #fff;
       color: #000;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Inter', sans-serif;
     }
 
     a { color: inherit; text-decoration: none; }
@@ -38,7 +38,7 @@
     }
 
 .title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: clamp(70px, 12vw, 140px);
       font-weight: 700;
       letter-spacing: 0.1em;
@@ -49,6 +49,7 @@
     /* ── Tagline + description ── */
     .sub {
       text-align: center;
+      margin-top: -20px;
     }
 
     .tagline {
@@ -59,8 +60,8 @@
     }
 
     .description {
-      font-size: 16px;
-      color: rgba(0, 0, 0, 0.45);
+      font-size: 21px;
+      color: rgba(0, 0, 0, 1);
       letter-spacing: 0.04em;
       margin-top: 10px;
     }
@@ -68,12 +69,12 @@
     /* ── Launch button ── */
     .launch-btn {
       display: inline-block;
-      margin-top: 16px;
+      margin-top: 81px;
       padding: 11px 36px;
       border: 1px solid rgba(255, 50, 50, 0.7);
       border-radius: 3px;
       color: #ff5555;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: 12px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
@@ -91,9 +92,9 @@
       grid-template-columns: auto auto auto;
       column-gap: 24px;
       row-gap: 10px;
-      margin-top: 128px;
+      margin-top: 118px;
       font-size: 12px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: 'Inter', sans-serif;
     }
 
     .control {
@@ -139,8 +140,8 @@
     </div>
 
     <div class="sub">
-      <div class="tagline">User Generated Orbit</div>
-      <div class="description">Navigate Google Maps and visualize your User Generated Orbit.</div>
+      <div class="description">Visualise your User Generated Orbit</div>
+      <div style="margin-top: 8px; font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">tip: try recording a UGO with the search bar</div>
     </div>
 
     <a class="launch-btn" href="orbit/" target="_blank">Hello San Francisco Bay Area →</a>
@@ -192,6 +193,7 @@
         <span class="control-key"></span>
       </div>
     </div>
+
 
   </div>
 
