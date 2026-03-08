@@ -39,7 +39,7 @@
 
 .title {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: clamp(60px, 10vw, 120px);
+      font-size: clamp(70px, 12vw, 140px);
       font-weight: 700;
       letter-spacing: 0.1em;
       color: #ff2020;
@@ -52,14 +52,14 @@
     }
 
     .tagline {
-      font-size: clamp(13px, 1.6vw, 22px);
+      font-size: clamp(15px, 1.6vw, 24px);
       letter-spacing: 0.28em;
       color: rgba(0, 0, 0, 0.45);
       text-transform: uppercase;
     }
 
     .description {
-      font-size: 12px;
+      font-size: 16px;
       color: rgba(0, 0, 0, 0.45);
       letter-spacing: 0.04em;
       margin-top: 10px;
@@ -85,8 +85,49 @@
       border-color: rgba(255, 50, 50, 1);
     }
 
-    /* ── Controls (hidden for now) ── */
-    .controls { display: none; }
+    /* ── Controls ── */
+    .controls {
+      display: grid;
+      grid-template-columns: auto auto auto;
+      column-gap: 24px;
+      row-gap: 10px;
+      margin-top: 128px;
+      font-size: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .control {
+      display: contents;
+    }
+
+    .control-header {
+      text-align: left;
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.04em;
+      padding-bottom: 4px;
+    }
+
+    .control-key {
+      text-align: left;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.02em;
+    }
+
+.control-action {
+      text-align: right;
+      color: rgba(0, 0, 0, 1);
+      letter-spacing: 0.04em;
+    }
+
+    .control-kb {
+      text-align: left;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.02em;
+      justify-self: start;
+    }
   </style>
 </head>
 <body>
@@ -99,10 +140,43 @@
 
     <div class="sub">
       <div class="tagline">User Generated Orbit</div>
-      <div class="description">Navigate Google Maps and record your User Generated Orbit.</div>
+      <div class="description">Navigate Google Maps and visualize your User Generated Orbit.</div>
     </div>
 
-    <a class="launch-btn" href="orbit/">Hello San Francisco Bay Area →</a>
+    <a class="launch-btn" href="orbit/" target="_blank">Hello San Francisco Bay Area →</a>
+
+    <div class="controls">
+      <div class="control">
+        <span class="control-action">move:</span>
+        <span class="control-kb">← ↑ → ↓</span>
+        <span class="control-key">click + drag</span>
+      </div>
+      <div class="control">
+        <span class="control-action">tilt:</span>
+        <span class="control-kb">Shift ↑ ↓</span>
+        <span class="control-key">click + drag + <em>shift</em></span>
+      </div>
+      <div class="control">
+        <span class="control-action" style="margin-top:10px">zoom:</span>
+        <span class="control-kb" style="margin-top:10px">+ / −</span>
+        <span class="control-key" style="margin-top:10px">2-finger drag</span>
+      </div>
+      <div class="control">
+        <span class="control-action">up / down:</span>
+        <span class="control-kb">Shift ← →</span>
+        <span class="control-key">2-finger drag + <em>shift</em></span>
+      </div>
+      <div class="control">
+        <span class="control-action"></span>
+        <span class="control-kb"></span>
+        <span class="control-key"></span>
+      </div>
+      <div class="control">
+        <span class="control-action">full screen on / off:</span>
+        <span class="control-kb">f</span>
+        <span class="control-key"></span>
+      </div>
+    </div>
 
   </div>
 
