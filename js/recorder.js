@@ -172,7 +172,7 @@ class UGORecorder {
     const totalDurationMs  = segmentDurations.reduce((sum, d) => sum + d, 0);
 
     return {
-      id:         crypto.randomUUID(),
+      id:         (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)),
       name:       `UGO ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       createdAt:  new Date().toISOString(),
       segments:   this.segments.map(s => s.frames),
