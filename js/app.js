@@ -278,8 +278,9 @@ async function _stopRecording() {
 
   // Auto-save to Gist archive
   const kml = exportKML(currentRecording);
-  const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || new URLSearchParams(location.search).has('dev');
-  const env = isDev ? ' [dev]' : '';
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const isDev   = !isLocal && new URLSearchParams(location.search).has('dev');
+  const env     = isLocal ? ' [local]' : isDev ? ' [dev]' : '';
   createGist(
     `ugo-${currentRecording.id}.kml`,
     kml,
@@ -336,14 +337,23 @@ async function _onFileSelected(e) {
 
 async function _loadFromGist(gistId) {
   _setText('stat-status', 'Loading UGO…');
+  const workerBase = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
   let kmlText;
   try {
-    const res  = await fetch(`https://api.github.com/gists/${gistId}`);
-    if (!res.ok) throw new Error(`Gist not found (${res.status})`);
-    const data = await res.json();
-    const file = Object.values(data.files)[0];
-    const raw  = await fetch(file.raw_url);
-    kmlText    = await raw.text();
+    if (gistId.startsWith('ugo-')) {
+      // UGO ID — search by filename via Worker
+      const res = await fetch(`${workerBase}/gist-by-ugo?id=${encodeURIComponent(gistId)}`);
+      if (!res.ok) throw new Error(`UGO not found (${res.status})`);
+      kmlText = await res.text();
+    } else {
+      // Gist ID — fetch directly from GitHub API
+      const res  = await fetch(`https://api.github.com/gists/${gistId}`);
+      if (!res.ok) throw new Error(`Gist not found (${res.status})`);
+      const data = await res.json();
+      const file = Object.values(data.files)[0];
+      const raw  = await fetch(file.raw_url);
+      kmlText    = await raw.text();
+    }
   } catch (err) {
     _setText('stat-status', 'Could not load UGO');
     return;
