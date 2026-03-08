@@ -324,6 +324,22 @@ html, body {
   display: contents;
 }
 
+.transport-about {
+  display: block;
+  text-align: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  padding: 2px 0 4px;
+  transition: color 0.15s;
+}
+
+.transport-about:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .c-label {
   color: rgba(255, 255, 255, 0.85);
   text-transform: uppercase;
