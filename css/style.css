@@ -50,6 +50,7 @@ html, body {
   height: 10px;
   border-radius: 6px 6px 0 0;
   cursor: grab;
+  touch-action: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -367,4 +368,10 @@ html, body {
   font-size: 13px;
   letter-spacing: 0.5px;
   text-align: right;
+}
+
+@media (max-width: 600px) {
+  #search-bar {
+    top: 52px;
+  }
 }

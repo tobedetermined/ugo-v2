@@ -73,22 +73,42 @@ export default {
 
     // Reverse geocode with KV cache
     if (url.pathname === '/geocode') {
-      const gistId = url.searchParams.get('gistId');
-      const lat    = url.searchParams.get('lat');
-      const lng    = url.searchParams.get('lng');
-      if (!gistId || !lat || !lng) return new Response('Missing params', { status: 400, headers: corsHeaders });
+      const gistId   = url.searchParams.get('gistId');
+      const startLat = url.searchParams.get('startLat');
+      const startLng = url.searchParams.get('startLng');
+      const endLat   = url.searchParams.get('endLat');
+      const endLng   = url.searchParams.get('endLng');
+      if (!gistId || !startLat || !startLng) return new Response('Missing params', { status: 400, headers: corsHeaders });
 
       const cached = await env.GEO_CACHE.get(gistId);
-      if (cached) return new Response(cached, { headers: { ...corsHeaders, 'Content-Type': 'text/plain' } });
+      if (cached && cached !== '—' && !cached.includes('County')) return new Response(cached, { headers: { ...corsHeaders, 'Content-Type': 'text/plain' } });
 
-      const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-        headers: { 'Accept-Language': 'en', 'User-Agent': 'usergeneratedorbit.com' },
-      });
-      const data = await res.json();
-      const addr = data.address || {};
-      const name = addr.city || addr.town || addr.village || addr.county || addr.state || addr.country || '—';
-      const cc   = addr.country_code ? addr.country_code.toUpperCase() : '';
-      const label = cc ? `${name}, ${cc}` : name;
+      async function geocodeName(lat, lng) {
+        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+          headers: { 'Accept-Language': 'en', 'User-Agent': 'usergeneratedorbit.com' },
+        });
+        const data = await res.json();
+        const addr = data.address || {};
+        const name = addr.city || addr.town || addr.village;
+        const cc   = addr.country_code ? addr.country_code.toUpperCase() : '';
+        if (!name && !cc) return null;
+        return name ? (cc ? `${name}, ${cc}` : name) : `somewhere, ${cc}`;
+      }
+
+      const startName = await geocodeName(startLat, startLng);
+      const endName   = endLat && endLng ? await geocodeName(endLat, endLng) : null;
+
+      const start = startName || 'somewhere';
+      const end   = endName   || 'somewhere';
+
+      let label;
+      if (!startName && !endName) {
+        label = 'User Generated Orbit';
+      } else if (start === end) {
+        label = start;
+      } else {
+        label = `${start} → ${end}`;
+      }
 
       await env.GEO_CACHE.put(gistId, label);
       return new Response(label, { headers: { ...corsHeaders, 'Content-Type': 'text/plain' } });

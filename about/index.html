@@ -62,8 +62,8 @@
     }
 
     .description {
-      font-size: 21px;
-      color: rgba(0, 0, 0, 1);
+      font-size: 39px;
+      color: #ff2020;
       letter-spacing: 0.04em;
       margin-top: 10px;
     }
@@ -179,6 +179,19 @@
     .contact a:hover {
       text-decoration: underline;
     }
+
+    @media (max-width: 600px) {
+      .page {
+        justify-content: flex-start;
+        padding-top: 96px;
+      }
+      .controls {
+        grid-template-columns: auto auto;
+      }
+      .control-kb {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -187,6 +200,7 @@
     <a href="/">UGO</a>
     <a href="/about" class="current">about</a>
     <a href="/gallery">gallery</a>
+    <a href="/sightings">sightings</a>
   </nav>
 
   <div class="page">
@@ -196,9 +210,9 @@
     </div> -->
 
     <div class="sub">
-      <div style="font-size: clamp(18px, 2.6vw, 42px); font-weight: 700; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">Navigate the world</div>
-      <div class="description">Visualise your User Generated Orbit</div>
-      <div style="margin-top: 8px; font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">tip: try recording a UGO with the search bar (<a href="https://photos.app.goo.gl/4faA2Z1m21iNPRo57" target="_blank" class="examples-link">examples</a>)</div>
+      <div class="description" style="font-weight: 700;">User Generated Orbit</div>
+      <div style="font-size: clamp(12px, 2.0vw, 36px); font-weight: 400; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">Navigate your world</div>
+      <div style="margin-top: 38px; font-family: 'Inter', sans-serif; font-size: 14px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">TIP: try a UGO with the search bar (<a href="/sightings" class="examples-link">examples</a>)</div>
     </div>
 
     <div class="controls">

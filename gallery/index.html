@@ -6,7 +6,7 @@
   <title>UGO — Gallery</title>
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -39,7 +39,7 @@
     }
 
     header h1 {
-      font-size: 22px;
+      font-size: 25px;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -48,12 +48,16 @@
 
     .nav {
       position: fixed;
-      top: 20px;
-      left: 28px;
+      top: 0;
+      left: 0;
+      right: 0;
       display: flex;
       gap: 18px;
       font-size: 11px;
       letter-spacing: 0.08em;
+      padding: 20px 28px;
+      background: #fff;
+      z-index: 100;
     }
 
     .nav a {
@@ -236,6 +240,7 @@
     <a href="/">UGO</a>
     <a href="/about">about</a>
     <a href="/gallery" class="current">gallery</a>
+    <a href="/sightings">sightings</a>
   </nav>
 
   <header>
@@ -244,7 +249,7 @@
         <h1>Gallery</h1>
         <span id="status">loading…</span>
       </div>
-      <footer>Want to show your UGO in the gallery? → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a></footer>
+      <footer>Want to share your UGO? → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a></footer>
     </div>
     <!-- motion type filter — re-enable once tagging is verified
     <div id="filters">
@@ -278,6 +283,12 @@
       document.body.classList.toggle('edit-mode', editMode);
       document.getElementById('btn-edit').classList.toggle('active', editMode);
     });
+
+    const GEO_CACHE_VERSION = '4';
+    if (localStorage.getItem('ugo-geo-cache-version') !== GEO_CACHE_VERSION) {
+      Object.keys(localStorage).filter(k => k.startsWith('ugo-geo-')).forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('ugo-geo-cache-version', GEO_CACHE_VERSION);
+    }
 
     async function load() {
       const status = document.getElementById('status');
@@ -314,7 +325,7 @@
 
       // Reverse-geocode — use localStorage cache, only call Nominatim for misses
       const toFetch = [];
-      for (const el of grid.querySelectorAll('.card-location[data-lat]')) {
+      for (const el of grid.querySelectorAll('.card-location[data-start-lat]')) {
         const cacheKey = `ugo-geo-${el.dataset.gistId}`;
         const cached   = localStorage.getItem(cacheKey);
         if (cached) {
@@ -403,12 +414,18 @@
       const meta = document.createElement('div');
       meta.className = 'card-meta';
 
+      const allFrames  = recording.segments.flat();
+      const firstFrame = allFrames[0];
+      const lastFrame  = allFrames[allFrames.length - 1];
+
       const loc = document.createElement('div');
-      loc.className      = 'card-location loading';
-      loc.textContent    = '···';
-      loc.dataset.lat    = centerLat;
-      loc.dataset.lng    = centerLng;
-      loc.dataset.gistId = gist.id;
+      loc.className        = 'card-location loading';
+      loc.textContent      = '···';
+      loc.dataset.startLat = firstFrame.eye.lat;
+      loc.dataset.startLng = firstFrame.eye.lng;
+      loc.dataset.endLat   = lastFrame.eye.lat;
+      loc.dataset.endLng   = lastFrame.eye.lng;
+      loc.dataset.gistId   = gist.id;
       meta.appendChild(loc);
 
       const details = document.createElement('div');
@@ -580,13 +597,13 @@
     }
 
     async function reverseGeocode(el) {
-      const { lat, lng, gistId } = el.dataset;
+      const { startLat, startLng, endLat, endLng, gistId } = el.dataset;
       try {
-        const res   = await fetch(`${WORKER}/geocode?gistId=${gistId}&lat=${lat}&lng=${lng}`);
+        const res   = await fetch(`${WORKER}/geocode?gistId=${gistId}&startLat=${startLat}&startLng=${startLng}&endLat=${endLat}&endLng=${endLng}`);
         const label = await res.text();
         el.textContent = label;
         el.classList.remove('loading');
-        localStorage.setItem(`ugo-geo-${gistId}`, label);
+        if (label !== '—') localStorage.setItem(`ugo-geo-${gistId}`, label);
       } catch (e) {
         el.textContent = '—';
         el.classList.remove('loading');

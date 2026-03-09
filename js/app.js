@@ -242,7 +242,7 @@ function _initDrag() {
   let dragging = false;
   let originX, originY, panelLeft, panelTop;
 
-  handle.addEventListener('mousedown', e => {
+  handle.addEventListener('pointerdown', e => {
     const rect = panel.getBoundingClientRect();
     // Switch from CSS right/transform to explicit left/top on first drag
     panel.style.right     = 'auto';
@@ -256,16 +256,17 @@ function _initDrag() {
     originY   = e.clientY;
     panelLeft = rect.left;
     panelTop  = rect.top;
+    handle.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
 
-  document.addEventListener('mousemove', e => {
+  document.addEventListener('pointermove', e => {
     if (!dragging) return;
     panel.style.left = (panelLeft + e.clientX - originX) + 'px';
     panel.style.top  = (panelTop  + e.clientY - originY) + 'px';
   });
 
-  document.addEventListener('mouseup', () => { dragging = false; });
+  document.addEventListener('pointerup', () => { dragging = false; });
 }
 
 // ── Recording flow ────────────────────────────────────────────────────────────
