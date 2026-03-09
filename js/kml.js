@@ -161,3 +161,9 @@ function _escapeXml(str) {
 function _safeFilename(str) {
   return String(str).replace(/[^a-z0-9_\-. ]/gi, '_');
 }
+
+// Export for test environments (no-op in browser)
+if (typeof exports !== 'undefined') {
+  exports.exportKML = exportKML;
+  exports.importKML = importKML;
+}

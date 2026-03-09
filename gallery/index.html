@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UGO — Gallery</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #fff;
+      color: #333;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 80px 32px 48px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 24px;
+      margin-bottom: 48px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #000;
+    }
+
+    .nav {
+      position: fixed;
+      top: 20px;
+      left: 28px;
+      display: flex;
+      gap: 18px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+    }
+
+    .nav a {
+      color: rgba(0,0,0,0.3);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .nav a:hover { color: #ff2020; }
+    .nav a.current { color: #000; font-weight: 500; pointer-events: none; }
+
+    #status {
+      font-size: 16px;
+      color: rgba(0,0,0,0.35);
+      letter-spacing: 0.05em;
+    }
+
+    #filters {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+      background: none;
+      border: 1px solid rgba(0,0,0,0.12);
+      color: rgba(0,0,0,0.35);
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .filter-btn:hover { color: rgba(0,0,0,0.7); border-color: rgba(0,0,0,0.4); }
+    .filter-btn.active { color: #000; border-color: rgba(0,0,0,0.5); }
+
+    #btn-edit {
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.05em;
+      background: none;
+      border: 1px solid rgba(0,0,0,0.15);
+      color: rgba(0,0,0,0.35);
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: auto;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    #btn-edit:hover { color: rgba(0,0,0,0.7); border-color: rgba(0,0,0,0.4); }
+    #btn-edit.active { color: rgba(255,180,50,0.9); border-color: rgba(255,180,50,0.4); }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: #f7f7f7;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+      transition: border-color 0.15s, transform 0.15s, opacity 0.15s;
+      position: relative;
+    }
+
+    .card:hover {
+      border-color: rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+
+    /* In edit mode, cards are not links */
+    body.edit-mode .card { pointer-events: none; transform: none; }
+    body.edit-mode .card:hover { border-color: rgba(0,0,0,0.08); }
+
+    .card.hidden-card {
+      opacity: 0.3;
+    }
+
+    /* Hide hidden cards in normal mode */
+    body:not(.edit-mode) .card.hidden-card { display: none; }
+
+    .card-sketch {
+      display: block;
+      width: 100%;
+      height: 160px;
+      background: #0d0d0d;
+    }
+
+    .card-meta {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .card-location {
+      font-size: 14px;
+      color: #000;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-location.loading { color: rgba(0,0,0,0.2); }
+
+    .card-details {
+      font-size: 12px;
+      color: rgba(0,0,0,0.6);
+      letter-spacing: 0.05em;
+      display: flex;
+      gap: 12px;
+    }
+
+    .card-tag {
+      font-size: 11px;
+      color: rgba(255,100,50,0.6);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* Hide button — only visible in edit mode */
+    .card-hide-btn {
+      display: none;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 9px;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.5);
+      padding: 3px 8px;
+      border-radius: 2px;
+      cursor: pointer;
+      pointer-events: all;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    body.edit-mode .card-hide-btn { display: block; }
+
+    .card-hide-btn:hover { color: #fff; border-color: rgba(255,255,255,0.6); }
+
+    .card.hidden-card .card-hide-btn {
+      color: rgba(255,180,50,0.7);
+      border-color: rgba(255,180,50,0.3);
+    }
+
+    .card.hidden-card .card-hide-btn:hover {
+      color: rgba(255,180,50,1);
+      border-color: rgba(255,180,50,0.7);
+    }
+    footer {
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: rgba(0, 0, 0, 0.45);
+    }
+
+    footer a {
+      color: #ff2020;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="/">UGO</a>
+    <a href="/about">about</a>
+    <a href="/gallery" class="current">gallery</a>
+  </nav>
+
+  <header>
+    <div class="header-title">
+      <div class="header-title-row">
+        <h1>Gallery</h1>
+        <span id="status">loading…</span>
+      </div>
+      <footer>Want to show your UGO in the gallery? → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a></footer>
+    </div>
+    <!-- motion type filter — re-enable once tagging is verified
+    <div id="filters">
+      <button class="filter-btn active" data-filter="all">all</button>
+      <button class="filter-btn" data-filter="search">search</button>
+      <button class="filter-btn" data-filter="manual">manual</button>
+      <button class="filter-btn" data-filter="mixed">mixed</button>
+    </div>
+    -->
+    <button id="btn-edit">edit</button>
+  </header>
+
+  <div id="grid"></div>
+
+  <script src="edit-config.js" onerror="void 0"></script>
+  <script src="../js/kml.js"></script>
+  <script>
+    const WORKER = 'https://usergeneratedorbitbot.navarenko.workers.dev';
+
+    let editMode = false;
+    let editKey  = window.UGO_EDIT_KEY || sessionStorage.getItem('ugo-edit-key') || '';
+
+    document.getElementById('btn-edit').addEventListener('click', () => {
+      if (!editMode) {
+        const key = editKey || prompt('Edit key:');
+        if (!key) return;
+        editKey = key;
+        sessionStorage.setItem('ugo-edit-key', key);
+      }
+      editMode = !editMode;
+      document.body.classList.toggle('edit-mode', editMode);
+      document.getElementById('btn-edit').classList.toggle('active', editMode);
+    });
+
+    async function load() {
+      const status = document.getElementById('status');
+      const grid   = document.getElementById('grid');
+
+      let gistList;
+      try {
+        const res = await fetch(`${WORKER}/gists`);
+        gistList  = await res.json();
+      } catch (e) {
+        status.textContent = 'could not load';
+        return;
+      }
+
+      if (!gistList.length) {
+        status.textContent = 'no recordings yet';
+        return;
+      }
+
+      const visible = gistList.filter(g => !(g.description || '').includes('[hidden]'));
+      status.textContent = `${visible.length} UGO${visible.length !== 1 ? 's' : ''}`;
+
+      // Load all KMLs in parallel and build cards
+      const results = await Promise.allSettled(
+        gistList.map(async g => {
+          const res  = await fetch(g.rawUrl);
+          const text = await res.text();
+          return { gist: g, rec: importKML(text) };
+        })
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') grid.appendChild(buildCard(r.value.gist, r.value.rec));
+      }
+
+      // Reverse-geocode — use localStorage cache, only call Nominatim for misses
+      const toFetch = [];
+      for (const el of grid.querySelectorAll('.card-location[data-lat]')) {
+        const cacheKey = `ugo-geo-${el.dataset.gistId}`;
+        const cached   = localStorage.getItem(cacheKey);
+        if (cached) {
+          el.textContent = cached;
+          el.classList.remove('loading');
+        } else {
+          toFetch.push(el);
+        }
+      }
+      for (const el of toFetch) {
+        await reverseGeocode(el);
+        await sleep(1100); // Nominatim rate limit — Worker enforces 1 req/sec on misses
+      }
+    }
+
+    async function toggleHidden(gist, card) {
+      const desc    = gist.description || '';
+      const isHidden = desc.includes('[hidden]');
+      const newDesc  = isHidden
+        ? desc.replace(/\s*\[hidden\]/, '').trim()
+        : (desc + ' [hidden]').trim();
+
+      const btn = card.querySelector('.card-hide-btn');
+      btn.textContent = '···';
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch(`${WORKER}/gist`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Key': editKey },
+          body: JSON.stringify({ id: gist.id, description: newDesc }),
+        });
+        if (resp.status === 401) {
+          sessionStorage.removeItem('ugo-edit-key');
+          editKey = '';
+          throw new Error('Unauthorized');
+        }
+        gist.description = newDesc;
+        card.classList.toggle('hidden-card', !isHidden);
+        btn.textContent = !isHidden ? 'show' : 'hide';
+      } catch (e) {
+        btn.textContent = 'error';
+      }
+
+      btn.disabled = false;
+    }
+
+    function buildCard(gist, recording) {
+      const bb        = recording.metadata.boundingBox;
+      const centerLat = (bb.north + bb.south) / 2;
+      const centerLng = (bb.east  + bb.west)  / 2;
+      const date      = new Date(gist.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const dur       = formatDuration(recording.metadata.totalDurationMs);
+      const dist      = recording.metadata.distance ? recording.metadata.distance.toFixed(1) + ' km' : null;
+      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const tag       = isLocalhost ? ((gist.description || '').match(/\[(dev|local)\]/)?.[1]?.toUpperCase() || null) : null;
+      const isHidden  = (gist.description || '').includes('[hidden]');
+
+      const motionType = recording.metadata?.motionType || 'manual';
+
+      const a = document.createElement('a');
+      a.className          = 'card' + (isHidden ? ' hidden-card' : '');
+      a.href               = `/?gist=${gist.id}`;
+      a.target             = '_blank';
+      a.dataset.motionType = motionType;
+
+      // SVG sketch
+      const svg = buildSVG(recording);
+      a.appendChild(svg);
+
+      // Trigger pulse animation on hover
+      a.addEventListener('mouseenter', () => svg._pulseAnim?.beginElement());
+
+      // Hide/show button
+      const hideBtn = document.createElement('button');
+      hideBtn.className   = 'card-hide-btn';
+      hideBtn.textContent = isHidden ? 'show' : 'hide';
+      hideBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleHidden(gist, a);
+      });
+      a.appendChild(hideBtn);
+
+      // Metadata
+      const meta = document.createElement('div');
+      meta.className = 'card-meta';
+
+      const loc = document.createElement('div');
+      loc.className      = 'card-location loading';
+      loc.textContent    = '···';
+      loc.dataset.lat    = centerLat;
+      loc.dataset.lng    = centerLng;
+      loc.dataset.gistId = gist.id;
+      meta.appendChild(loc);
+
+      const details = document.createElement('div');
+      details.className = 'card-details';
+      details.innerHTML = `<span>${date}</span>${dur ? `<span>${dur}</span>` : ''}${dist ? `<span>${dist}</span>` : ''}`;
+      meta.appendChild(details);
+
+      if (tag) {
+        const tagEl = document.createElement('div');
+        tagEl.className   = 'card-tag';
+        tagEl.textContent = tag;
+        meta.appendChild(tagEl);
+      }
+
+      a.appendChild(meta);
+      return a;
+    }
+
+    function buildSVG(recording) {
+      const W = 260, H = 160;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.setAttribute('class', 'card-sketch');
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+      const ns  = 'http://www.w3.org/2000/svg';
+      const pad = 0.15;
+
+      // Use eye positions for a richer path shape
+      const allFrames = recording.segments.flat();
+      const lats = allFrames.map(f => f.eye.lat);
+      const lngs = allFrames.map(f => f.eye.lng);
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+      const latRange = (maxLat - minLat) || 0.001;
+      const lngRange = (maxLng - minLng) || 0.001;
+
+      const toX = lng => ((lng - minLng) / lngRange) * W * (1 - 2 * pad) + W * pad;
+      const toY = lat => H - ((lat - minLat) / latRange) * H * (1 - 2 * pad) - H * pad;
+
+      // Graticule — round lat/lng grid lines
+      const latStep = niceStep(latRange);
+      const lngStep = niceStep(lngRange);
+      const graticule = document.createElementNS(ns, 'g');
+      graticule.setAttribute('stroke', 'rgba(255,255,255,0.06)');
+      graticule.setAttribute('stroke-width', '0.5');
+      for (let lat = Math.ceil(minLat / latStep) * latStep; lat <= maxLat; lat += latStep) {
+        const line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', 0); line.setAttribute('x2', W);
+        line.setAttribute('y1', toY(lat).toFixed(1)); line.setAttribute('y2', toY(lat).toFixed(1));
+        graticule.appendChild(line);
+      }
+      for (let lng = Math.ceil(minLng / lngStep) * lngStep; lng <= maxLng; lng += lngStep) {
+        const line = document.createElementNS(ns, 'line');
+        line.setAttribute('y1', 0); line.setAttribute('y2', H);
+        line.setAttribute('x1', toX(lng).toFixed(1)); line.setAttribute('x2', toX(lng).toFixed(1));
+        graticule.appendChild(line);
+      }
+      svg.appendChild(graticule);
+
+      // Gradient path — draw segments as short lines fading from dim to bright
+      // Also build a single path string + calculate pixel length for pulse animation
+      let pathData = '';
+      let totalLen = 0;
+
+      for (const segment of recording.segments) {
+        if (segment.length < 2) continue;
+        const n = segment.length;
+        for (let i = 0; i < n - 1; i++) {
+          const x1 = toX(segment[i].eye.lng),   y1 = toY(segment[i].eye.lat);
+          const x2 = toX(segment[i+1].eye.lng), y2 = toY(segment[i+1].eye.lat);
+          const opacity = 0.15 + 0.5 * (i / (n - 1));
+          const line = document.createElementNS(ns, 'line');
+          line.setAttribute('x1', x1.toFixed(1)); line.setAttribute('y1', y1.toFixed(1));
+          line.setAttribute('x2', x2.toFixed(1)); line.setAttribute('y2', y2.toFixed(1));
+          line.setAttribute('stroke', '#ff2020');
+          line.setAttribute('stroke-width', '1.5');
+          line.setAttribute('stroke-linecap', 'round');
+          line.setAttribute('opacity', opacity.toFixed(2));
+          svg.appendChild(line);
+          totalLen += Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+        }
+        pathData += (pathData ? ' M' : 'M') + segment.map(f =>
+          `${toX(f.eye.lng).toFixed(1)},${toY(f.eye.lat).toFixed(1)}`).join(' L');
+      }
+
+      // Glow filter
+      const defs   = document.createElementNS(ns, 'defs');
+      const filter = document.createElementNS(ns, 'filter');
+      filter.setAttribute('id', `glow-${Math.random().toString(36).slice(2)}`);
+      const blur = document.createElementNS(ns, 'feGaussianBlur');
+      blur.setAttribute('stdDeviation', '2.5');
+      blur.setAttribute('result', 'blur');
+      const merge  = document.createElementNS(ns, 'feMerge');
+      const node1  = document.createElementNS(ns, 'feMergeNode'); node1.setAttribute('in', 'blur');
+      const node2  = document.createElementNS(ns, 'feMergeNode'); node2.setAttribute('in', 'SourceGraphic');
+      merge.appendChild(node1); merge.appendChild(node2);
+      filter.appendChild(blur); filter.appendChild(merge);
+      defs.appendChild(filter);
+      svg.appendChild(defs);
+
+      // Animated pulse — bright dashed segment traveling along the full path
+      const dashLen = Math.max(12, totalLen * 0.08);
+      const pulse   = document.createElementNS(ns, 'path');
+      pulse.setAttribute('d', pathData);
+      pulse.setAttribute('fill', 'none');
+      pulse.setAttribute('stroke', '#ff6a4a');
+      pulse.setAttribute('stroke-width', '2.5');
+      pulse.setAttribute('stroke-linecap', 'round');
+      pulse.setAttribute('stroke-dasharray', `${dashLen.toFixed(1)} ${totalLen.toFixed(1)}`);
+      pulse.setAttribute('stroke-dashoffset', '0');
+      pulse.setAttribute('filter', `url(#${filter.getAttribute('id')})`);
+
+      const anim = document.createElementNS(ns, 'animate');
+      anim.setAttribute('attributeName', 'stroke-dashoffset');
+      anim.setAttribute('from', '0');
+      anim.setAttribute('to',   `-${totalLen.toFixed(1)}`);
+      anim.setAttribute('dur',  '2s');
+      anim.setAttribute('begin', 'indefinite');
+      anim.setAttribute('repeatCount', '1');
+      anim.setAttribute('fill', 'freeze');
+      anim.setAttribute('calcMode', 'linear');
+      pulse.appendChild(anim);
+      svg.appendChild(pulse);
+
+      // Trigger pulse on card hover
+      svg._pulseAnim = anim;
+
+      // Start dot — large red filled circle
+      const first = allFrames[0];
+      const startDot = document.createElementNS(ns, 'circle');
+      startDot.setAttribute('cx', toX(first.eye.lng).toFixed(1));
+      startDot.setAttribute('cy', toY(first.eye.lat).toFixed(1));
+      startDot.setAttribute('r', '4');
+      startDot.setAttribute('fill', '#ff2020');
+      startDot.setAttribute('opacity', '0.9');
+      svg.appendChild(startDot);
+
+      // End dot — small hollow ring
+      const last = allFrames[allFrames.length - 1];
+      const endDot = document.createElementNS(ns, 'circle');
+      endDot.setAttribute('cx', toX(last.eye.lng).toFixed(1));
+      endDot.setAttribute('cy', toY(last.eye.lat).toFixed(1));
+      endDot.setAttribute('r', '3');
+      endDot.setAttribute('fill', 'none');
+      endDot.setAttribute('stroke', 'rgba(255,255,255,0.4)');
+      endDot.setAttribute('stroke-width', '1.5');
+      svg.appendChild(endDot);
+
+      // N indicator
+      const north = document.createElementNS(ns, 'text');
+      north.setAttribute('x', W - 8); north.setAttribute('y', 12);
+      north.setAttribute('fill', 'rgba(255,255,255,0.2)');
+      north.setAttribute('font-size', '8');
+      north.setAttribute('font-family', 'monospace');
+      north.setAttribute('text-anchor', 'end');
+      north.textContent = 'N↑';
+      svg.appendChild(north);
+
+      return svg;
+    }
+
+    function niceStep(range) {
+      const target = 3; // aim for ~3 grid lines
+      const raw    = range / target;
+      const mag    = Math.pow(10, Math.floor(Math.log10(raw)));
+      const norm   = raw / mag;
+      return (norm < 2 ? 1 : norm < 5 ? 2 : 5) * mag;
+    }
+
+    async function reverseGeocode(el) {
+      const { lat, lng, gistId } = el.dataset;
+      try {
+        const res   = await fetch(`${WORKER}/geocode?gistId=${gistId}&lat=${lat}&lng=${lng}`);
+        const label = await res.text();
+        el.textContent = label;
+        el.classList.remove('loading');
+        localStorage.setItem(`ugo-geo-${gistId}`, label);
+      } catch (e) {
+        el.textContent = '—';
+        el.classList.remove('loading');
+      }
+    }
+
+    function formatDuration(ms) {
+      if (!ms) return null;
+      const s = Math.round(ms / 1000);
+      const m = Math.floor(s / 60);
+      return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    load();
+  </script>
+
+
+</body>
+</html>

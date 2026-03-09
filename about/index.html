@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UGO — User Generated Orbit</title>
+  <title>UGO — About</title>
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
@@ -29,6 +29,7 @@
       justify-content: center;
       gap: 10px;
       padding: 48px 40px;
+      padding-bottom: 108px;
       background: #fff;
     }
 
@@ -140,9 +141,29 @@
       justify-self: start;
     }
 
+    /* ── Nav ── */
+    .nav {
+      position: fixed;
+      top: 20px;
+      left: 28px;
+      display: flex;
+      gap: 18px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+    }
+
+    .nav a {
+      color: rgba(0,0,0,0.3);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .nav a:hover { color: #ff2020; }
+    .nav a.current { color: #000; font-weight: 500; }
+
     /* ── Contact section ── */
     .contact {
-      margin-top: 32px;
+      margin-top: 62px;
       padding-top: 16px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
       text-align: center;
@@ -162,18 +183,23 @@
 </head>
 <body>
 
+  <nav class="nav">
+    <a href="/">UGO</a>
+    <a href="/about" class="current">about</a>
+    <a href="/gallery">gallery</a>
+  </nav>
+
   <div class="page">
 
-    <div class="brand">
+    <!-- <div class="brand">
       <div class="title">UGO</div>
-    </div>
+    </div> -->
 
     <div class="sub">
+      <div style="font-size: clamp(18px, 2.6vw, 42px); font-weight: 700; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">Navigate the world</div>
       <div class="description">Visualise your User Generated Orbit</div>
       <div style="margin-top: 8px; font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">tip: try recording a UGO with the search bar (<a href="https://photos.app.goo.gl/4faA2Z1m21iNPRo57" target="_blank" class="examples-link">examples</a>)</div>
     </div>
-
-    <a class="launch-btn" href="/" target="_blank">Hello San Francisco Bay Area →</a>
 
     <div class="controls">
       <div class="control">

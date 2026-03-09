@@ -7,10 +7,14 @@ ugo-modern-architecture.md
 # macOS
 .DS_Store
 
+# Dependencies
+node_modules/
+
 # Local API key config (never commit)
 orbit/config.js
 config.js
 telemetry-config.js
+gallery/edit-config.js
 
 # Local planning notes (never commit)
 memory/

@@ -21,9 +21,10 @@ class UGORecorder {
     this.recording = false;
     this.paused = false;
     this.timer = null;
-    this.segments = [];         // completed segments: { frames, durationMs }
-    this.currentSegment = [];   // frames being captured right now
+    this.segments = [];           // completed segments: { frames, durationMs, type }
+    this.currentSegment = [];     // frames being captured right now
     this.segmentStartTime = null;
+    this._currentSegmentType = 'manual';
 
     // Optional callback: fired after each captured frame
     // signature: (frameCount, elapsedMs) => void
@@ -36,6 +37,7 @@ class UGORecorder {
     this.recording = true;
     this.paused = false;
     this.segmentStartTime = performance.now();
+    this._currentSegmentType = 'manual';
     this.timer = setInterval(() => this._captureFrame(), this.intervalMs);
   }
 
@@ -46,7 +48,7 @@ class UGORecorder {
     this.paused = true;
     const durationMs = performance.now() - this.segmentStartTime;
     if (this.currentSegment.length > 0) {
-      this.segments.push({ frames: this.currentSegment, durationMs });
+      this.segments.push({ frames: this.currentSegment, durationMs, type: this._currentSegmentType });
     }
     this.currentSegment = [];
   }
@@ -65,13 +67,36 @@ class UGORecorder {
       this.timer = null;
       const durationMs = performance.now() - this.segmentStartTime;
       if (this.currentSegment.length > 0) {
-        this.segments.push({ frames: this.currentSegment, durationMs });
+        this.segments.push({ frames: this.currentSegment, durationMs, type: this._currentSegmentType });
       }
     }
     this.recording = false;
     this.paused = false;
     this.currentSegment = [];
     return this._buildRecording();
+  }
+
+  // Call when a search flight starts during recording.
+  // Seals the current manual segment, opens a search segment,
+  // then after durationMs opens a new manual segment.
+  markSearchFlight(durationMs) {
+    if (!this.recording || this.paused) return;
+    this._sealCurrentSegment();
+    this._currentSegmentType = 'search';
+    setTimeout(() => {
+      if (!this.recording || this.paused) return;
+      this._sealCurrentSegment();
+      this._currentSegmentType = 'manual';
+    }, durationMs);
+  }
+
+  _sealCurrentSegment() {
+    const durationMs = performance.now() - this.segmentStartTime;
+    if (this.currentSegment.length > 0) {
+      this.segments.push({ frames: this.currentSegment, durationMs, type: this._currentSegmentType });
+    }
+    this.currentSegment = [];
+    this.segmentStartTime = performance.now();
   }
 
   getFrameCount() {
@@ -171,6 +196,10 @@ class UGORecorder {
     const segmentDurations = this.segments.map(s => s.durationMs);
     const totalDurationMs  = segmentDurations.reduce((sum, d) => sum + d, 0);
 
+    const segmentTypes = this.segments.map(s => s.type || 'manual');
+    const typeSet      = new Set(segmentTypes);
+    const motionType   = typeSet.size === 1 ? [...typeSet][0] : 'mixed';
+
     return {
       id:         (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)),
       name:       `UGO ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
@@ -180,6 +209,8 @@ class UGORecorder {
       metadata: {
         totalDurationMs,
         segmentDurations,
+        segmentTypes,
+        motionType,
         segmentCount:  this.segments.length,
         frameCount:    allFrames.length,
         boundingBox: {

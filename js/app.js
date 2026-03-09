@@ -40,8 +40,43 @@ const _metrics = {
 async function initMap() {
   const { Map3DElement, MapMode } = await google.maps.importLibrary('maps3d');
 
+  let startCamera = INITIAL_CAMERA;
+  const params = new URLSearchParams(location.search);
+  if (params.has('gist')) {
+    try {
+      const gistId = params.get('gist');
+      const workerBase = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
+
+      // Fetch IP location and gist position concurrently
+      const [ipRes, gistRes] = await Promise.allSettled([
+        fetch('https://ipapi.co/json/').then(r => r.json()),
+        gistId.startsWith('ugo-')
+          ? fetch(`${workerBase}/gist-by-ugo?id=${encodeURIComponent(gistId)}`).then(r => r.text()).then(importKML)
+          : fetch(`https://api.github.com/gists/${gistId}`).then(r => r.json())
+              .then(d => fetch(Object.values(d.files)[0].raw_url)).then(r => r.text()).then(importKML),
+      ]);
+
+      const ip  = ipRes.status  === 'fulfilled' ? ipRes.value  : null;
+      const rec = gistRes.status === 'fulfilled' ? gistRes.value : null;
+
+      const userLat = ip?.latitude  ?? 0;
+      const userLng = ip?.longitude ?? 0;
+
+      let rangeM = 8000000; // default ~8000km
+      if (rec) {
+        const bb     = rec.metadata.boundingBox;
+        const ugoLat = (bb.north + bb.south) / 2;
+        const ugoLng = (bb.east  + bb.west)  / 2;
+        const distKm = _haversineKm(userLat, userLng, ugoLat, ugoLng);
+        rangeM = Math.max(800000, Math.min(20000000, distKm * 4000));
+      }
+
+      startCamera = { center: { lat: userLat, lng: userLng, altitude: 0 }, range: rangeM, tilt: 0, heading: 0 };
+    } catch (e) {}
+  }
+
   map = new Map3DElement({
-    ...INITIAL_CAMERA,
+    ...startCamera,
     mode: MapMode.SATELLITE,
   });
 
@@ -53,11 +88,8 @@ async function initMap() {
   visualizer  = new UGOVisualizer(map);
   issTracker      = new SatTracker(map, 25544, 'rgba(255, 220, 50, 0.95)');
   // tiangongTracker = new SatTracker(map, 48274, 'rgba(50, 180, 255, 0.95)', 'n2yo');
-  issTracker.show();
-  // tiangongTracker.show();
-  document.getElementById('btn-iss-toggle').classList.add('active');
-  // document.getElementById('btn-tiangong-toggle').classList.add('active');
-  _startSatTimer();
+  // ISS off by default — user can enable via the ISS button
+  document.getElementById('btn-iss').disabled = true;
 
   document.getElementById('search-bar').addEventListener('submit', _onSearch);
 
@@ -70,6 +102,7 @@ async function initMap() {
   document.getElementById('btn-stop').addEventListener('click',   _stopRecording);
   document.getElementById('btn-clear').addEventListener('click',  _clearRecording);
   document.getElementById('btn-fill').addEventListener('click',   _toggleFill);
+  document.getElementById('btn-play').addEventListener('click',   _onPlayButton);
   document.getElementById('btn-save').addEventListener('click',   _saveRecording);
   document.getElementById('btn-load').addEventListener('click',   () => document.getElementById('file-input').click());
   document.getElementById('file-input').addEventListener('change', _onFileSelected);
@@ -98,9 +131,37 @@ async function initMap() {
 
   _initDrag();
 
+  // Mark nav links so we know the user navigated away (not a hard reload)
+  // Also snapshot the current camera so we can restore it on return
+  document.querySelectorAll('#site-nav a').forEach(a => {
+    a.addEventListener('click', () => {
+      sessionStorage.setItem('ugo-returning', '1');
+      try {
+        const cam = {
+          center:  { lat: map.center.lat, lng: map.center.lng, altitude: map.center.altitude },
+          range:   map.range,
+          tilt:    map.tilt,
+          heading: map.heading,
+        };
+        localStorage.setItem('ugo-camera', JSON.stringify(cam));
+      } catch (e) {}
+    });
+  });
+
   // Load a UGO from a Gist ID passed as ?gist=ID in the URL
-  const gistId = new URLSearchParams(location.search).get('gist');
-  if (gistId) _loadFromGist(gistId);
+  const gistId = params.get('gist');
+  if (gistId) {
+    _loadFromGist(gistId);
+  } else {
+    // Restore last session recording only when returning from another page (not on hard reload)
+    const returning = sessionStorage.getItem('ugo-returning');
+    sessionStorage.removeItem('ugo-returning');
+    const saved = localStorage.getItem('ugo-session');
+    if (returning && saved) _restoreSession(saved);
+  }
+
+  // Tour mode — load all UGOs and fly between them
+  if (params.has('tour')) _startTour();
 }
 
 // R       — reset tilt + heading (Google Earth style)
@@ -212,6 +273,7 @@ function _initDrag() {
 function _onRecordButton() {
   if (_appState === 'ready' || _appState === 'visualised') {
     // Fresh start — clear any previous visualisation
+    _stopPlayback();
     currentRecording = null;
     visualizer.clear();
     document.getElementById('btn-fill').classList.remove('active');
@@ -278,13 +340,14 @@ async function _stopRecording() {
 
   // Auto-save to Gist archive
   const kml = exportKML(currentRecording);
+  try { localStorage.setItem('ugo-session', kml); } catch (e) {}
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   const isDev   = !isLocal && new URLSearchParams(location.search).has('dev');
   const env     = isLocal ? ' [local]' : isDev ? ' [dev]' : '';
   createGist(
     `ugo-${currentRecording.id}.kml`,
     kml,
-    `UGO recording — ${currentRecording.name}${env}`
+    `UGO recording — ${currentRecording.name}${env} [hidden]`
   );
 }
 
@@ -335,7 +398,199 @@ async function _onFileSelected(e) {
   _enterState('visualised');
 }
 
+function _overviewCamera(recording) {
+  const segments = recording.segments;
+  const bb       = recording.metadata.boundingBox;
+  if (!segments || !segments.length || !bb) return null;
+
+  const centerLat = (bb.north + bb.south) / 2;
+  const centerLng = (bb.east  + bb.west)  / 2;
+
+  const allFrames = segments.flat();
+  let Cxx = 0, Cyy = 0, Cxy = 0;
+  for (const f of allFrames) {
+    const dx = f.center.lng - centerLng;
+    const dy = f.center.lat - centerLat;
+    Cxx += dx * dx; Cyy += dy * dy; Cxy += dx * dy;
+  }
+
+  let pdx, pdy;
+  if (Math.abs(Cxy) < 1e-12) {
+    pdx = Cxx >= Cyy ? 1 : 0;
+    pdy = Cxx >= Cyy ? 0 : 1;
+  } else {
+    const lambda = ((Cxx + Cyy) + Math.sqrt((Cxx - Cyy) ** 2 + 4 * Cxy ** 2)) / 2;
+    pdx = Cxy; pdy = lambda - Cxx;
+  }
+
+  const principalBearing = Math.atan2(pdx, pdy) * 180 / Math.PI;
+  const heading = (principalBearing + 90 + 360) % 360;
+  const diagKm  = _haversineKm(bb.south, bb.west, bb.north, bb.east);
+  const rangeM  = Math.max(diagKm * 1000 * 1.8, 5000);
+
+  return { center: { lat: centerLat, lng: centerLng, altitude: 0 }, range: rangeM, tilt: 55, heading };
+}
+
+// ── Playback ──────────────────────────────────────────────────────────────────
+
+let _playbackRaf      = null;
+let _playbackWall     = 0; // performance.now() at (re)start, adjusted for paused offset
+let _playbackRec      = 0; // recording timestamp at play start
+let _playbackPausedAt = 0; // ms elapsed into recording when paused (0 = not paused)
+let _playbackFrames   = [];
+
+function _onPlayButton() {
+  if (_playbackRaf) {
+    _pausePlayback();
+  } else {
+    _startPlayback();
+  }
+}
+
+function _startPlayback() {
+  if (!currentRecording) return;
+
+  _playbackFrames = currentRecording.segments.flat();
+  if (_playbackFrames.length < 2) return;
+
+  // Resume from paused position, or start from the beginning
+  _playbackWall = performance.now() - _playbackPausedAt;
+  _playbackRec  = _playbackFrames[0].timestamp;
+
+  const btn = document.getElementById('btn-play');
+  btn.textContent = '⏸ PAUSE';
+  btn.classList.add('recording'); // reuse red style
+  _setText('stat-status', '▶ Playing…');
+
+  function tick() {
+    const elapsed = performance.now() - _playbackWall;
+    const recTime = _playbackRec + elapsed;
+    const frames  = _playbackFrames;
+    const last    = frames[frames.length - 1];
+
+    if (recTime >= last.timestamp) {
+      _stopPlayback();
+      return;
+    }
+
+    // Binary search for the frame pair surrounding recTime
+    let lo = 0, hi = frames.length - 2;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (frames[mid].timestamp <= recTime) lo = mid; else hi = mid - 1;
+    }
+
+    const f0 = frames[lo];
+    const f1 = frames[lo + 1];
+    const t  = (recTime - f0.timestamp) / (f1.timestamp - f0.timestamp);
+
+    // Interpolate and apply camera directly (no animation queuing)
+    map.center  = {
+      lat:      f0.center.lat      + (f1.center.lat      - f0.center.lat)      * t,
+      lng:      f0.center.lng      + (f1.center.lng      - f0.center.lng)      * t,
+      altitude: f0.center.altitude + (f1.center.altitude - f0.center.altitude) * t,
+    };
+    map.range   = f0.range + (f1.range - f0.range) * t;
+    map.tilt    = f0.tilt  + (f1.tilt  - f0.tilt)  * t;
+
+    // Heading: interpolate along the shortest arc
+    const dh    = ((f1.heading - f0.heading) % 360 + 540) % 360 - 180;
+    map.heading = f0.heading + dh * t;
+
+    _playbackRaf = requestAnimationFrame(tick);
+  }
+
+  _playbackRaf = requestAnimationFrame(tick);
+}
+
+function _pausePlayback() {
+  if (_playbackRaf) {
+    _playbackPausedAt = performance.now() - _playbackWall;
+    cancelAnimationFrame(_playbackRaf);
+    _playbackRaf = null;
+  }
+  const btn = document.getElementById('btn-play');
+  if (btn) {
+    btn.textContent = '▶ PLAY';
+    btn.classList.remove('recording');
+  }
+  _setText('stat-status', '⏸ Paused');
+}
+
+function _stopPlayback() {
+  if (_playbackRaf) {
+    cancelAnimationFrame(_playbackRaf);
+    _playbackRaf = null;
+  }
+  _playbackPausedAt = 0;
+  const btn = document.getElementById('btn-play');
+  if (btn) {
+    btn.textContent = '▶ PLAY';
+    btn.classList.remove('recording');
+  }
+  if (_appState === 'visualised') _setText('stat-status', 'UGO rendered');
+}
+
+async function _startTour() {
+  const workerBase = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
+  _setText('stat-status', 'Loading tour…');
+
+  let gistList;
+  try {
+    const res = await fetch(`${workerBase}/gists`);
+    gistList  = await res.json();
+  } catch (e) {
+    _setText('stat-status', 'Could not load tour');
+    return;
+  }
+
+  if (!gistList.length) {
+    _setText('stat-status', 'No UGOs found');
+    return;
+  }
+
+  // Load all recordings
+  const recordings = [];
+  for (const g of gistList) {
+    try {
+      const res  = await fetch(g.rawUrl);
+      const text = await res.text();
+      recordings.push(importKML(text));
+    } catch (e) { /* skip bad entries */ }
+  }
+
+  if (!recordings.length) {
+    _setText('stat-status', 'No valid UGOs');
+    return;
+  }
+
+  // Render all at once
+  _setText('stat-status', 'Rendering…');
+  for (const rec of recordings) {
+    try {
+      await visualizer.renderRecording(rec, () => {});
+    } catch (e) {}
+  }
+
+  _setText('stat-status', `${recordings.length} UGOs loaded`);
+  _enterState('visualised');
+
+  // Fly tour — 3s fly + 4s linger per UGO
+  const FLY_MS    = 3000;
+  const LINGER_MS = 4000;
+
+  for (const rec of recordings) {
+    const cam = _overviewCamera(rec);
+    if (!cam) continue;
+    map.flyCameraTo({ endCamera: cam, durationMillis: FLY_MS });
+    await new Promise(r => setTimeout(r, FLY_MS + LINGER_MS));
+  }
+
+  _setText('stat-status', 'Tour complete');
+}
+
 async function _loadFromGist(gistId) {
+  _stopPlayback();
   _setText('stat-status', 'Loading UGO…');
   const workerBase = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
   let kmlText;
@@ -388,11 +643,42 @@ async function _loadFromGist(gistId) {
   }
 
   _enterState('visualised');
+
+  // Fly to PCA-based overview
+  const cam = _overviewCamera(recording);
+  if (cam) map.flyCameraTo({ endCamera: cam, durationMillis: 4500 });
+}
+
+async function _restoreSession(kml) {
+  let recording;
+  try { recording = importKML(kml); } catch (e) { localStorage.removeItem('ugo-session'); return; }
+  currentRecording = recording;
+  _metrics.maxAltitude = recording.metadata.maxAltitude ?? null;
+  _metrics.distance    = recording.metadata.distance    ?? 0;
+  _metrics.elapsedMs   = recording.metadata.totalDurationMs ?? null;
+  _updateDevHud();
+  _setText('stat-status', 'Restoring…');
+  try {
+    await visualizer.renderRecording(currentRecording, ({ requests, locations, error }) => {
+      _metrics.elevationRequests  += requests;
+      _metrics.elevationLocations += locations;
+      if (error) _metrics.elevationError = error;
+      _updateDevHud();
+    });
+  } catch (e) {}
+  _enterState('visualised');
+  _setText('stat-status', 'UGO restored');
+  try {
+    const saved = localStorage.getItem('ugo-camera');
+    if (saved) Object.assign(map, JSON.parse(saved));
+  } catch (e) {}
 }
 
 function _clearRecording() {
+  _stopPlayback();
   visualizer.clear();
   currentRecording = null;
+  try { localStorage.removeItem('ugo-session'); localStorage.removeItem('ugo-camera'); } catch (e) {}
   document.getElementById('btn-fill').classList.remove('active');
   _metrics.maxAltitude = null;
   _metrics.distance    = 0;
@@ -413,10 +699,13 @@ function _toggleISS() {
     issTracker.hide();
     btn.classList.remove('active');
     document.getElementById('btn-iss').disabled = true;
+    clearInterval(_satTimer);
+    _satTimer = null;
   } else {
     issTracker.show();
     btn.classList.add('active');
     document.getElementById('btn-iss').disabled = false;
+    _startSatTimer();
   }
 }
 
@@ -473,6 +762,7 @@ async function _flyToISS() {
 }
 
 function _resetCamera() {
+  _stopPlayback();
   clearInterval(_durationTimer);
   _durationTimer = null;
   if (_appState === 'recording' || _appState === 'paused') {
@@ -506,24 +796,24 @@ function _enterState(state) {
   switch (state) {
     case 'ready':
       recBtn.textContent = '● REC';
-      _setButtons({ record: true, stop: false, clear: false, fill: false, save: false, load: true });
+      _setButtons({ record: true, stop: false, clear: false, fill: false, save: false, load: true, play: false });
       _setText('stat-status', 'Ready to record');
       break;
     case 'recording':
       recBtn.textContent = '⏸ PAUSE';
       recBtn.classList.add('recording');
-      _setButtons({ record: true, stop: true, clear: false, fill: false, save: false, load: false });
+      _setButtons({ record: true, stop: true, clear: false, fill: false, save: false, load: false, play: false });
       document.getElementById('stat-status').innerHTML = '<span class="dot-blink">●</span> Recording…';
       break;
     case 'paused':
       recBtn.textContent = '● REC';
       recBtn.classList.add('paused');
-      _setButtons({ record: true, stop: true, clear: false, fill: false, save: false, load: false });
+      _setButtons({ record: true, stop: true, clear: false, fill: false, save: false, load: false, play: false });
       _setText('stat-status', '⏸ Paused');
       break;
     case 'visualised':
       recBtn.textContent = '● REC';
-      _setButtons({ record: true, stop: false, clear: true, fill: true, save: true, load: true });
+      _setButtons({ record: true, stop: false, clear: true, fill: true, save: true, load: true, play: true });
       _setText('stat-status', 'UGO rendered');
       document.getElementById('btn-fill').classList.add('active');
       break;
@@ -581,6 +871,8 @@ async function _onSearch(e) {
   const data = await res.json();
   if (!data.length) return;
 
+  const FLY_MS = 24000;
+
   map.flyCameraTo({
     endCamera: {
       center:  { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), altitude: 0 },
@@ -588,8 +880,22 @@ async function _onSearch(e) {
       tilt:    45,
       heading: 0,
     },
-    durationMillis: 24000,
+    durationMillis: FLY_MS,
   });
+
+  if (_appState === 'recording') {
+    recorder.markSearchFlight(FLY_MS);
+    setTimeout(() => {
+      if (_appState === 'recording') {
+        _setText('stat-status', 'Search complete');
+        setTimeout(() => {
+          if (_appState === 'recording') {
+            document.getElementById('stat-status').innerHTML = '<span class="dot-blink">●</span> Recording…';
+          }
+        }, 3000);
+      }
+    }, FLY_MS);
+  }
 
   document.getElementById('search-input').blur();
 }
@@ -603,13 +909,14 @@ function _toggleFill() {
   map.focus();
 }
 
-function _setButtons({ record, stop, clear, fill, save, load }) {
+function _setButtons({ record, stop, clear, fill, save, load, play }) {
   document.getElementById('btn-record').disabled = !record;
   document.getElementById('btn-stop').disabled   = !stop;
   document.getElementById('btn-clear').disabled  = !clear;
   if (fill !== undefined) document.getElementById('btn-fill').disabled = !fill;
   if (save !== undefined) document.getElementById('btn-save').disabled = !save;
   if (load !== undefined) document.getElementById('btn-load').disabled = !load;
+  if (play !== undefined) document.getElementById('btn-play').disabled = !play;
 }
 
 function _setText(id, text) {
