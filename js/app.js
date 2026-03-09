@@ -712,14 +712,19 @@ function _toggleISS() {
 }
 
 function _startSatTimer() {
-  clearInterval(_satTimer);
+  clearTimeout(_satTimer);
   const trackers = [issTracker/*, tiangongTracker*/];
   let i = 0;
-  _satTimer = setInterval(() => {
+  function tick() {
     const t = trackers[i % trackers.length];
     if (t._visible) t._fetch();
     i++;
-  }, 1000);
+    // schedule next poll ~100ms after the next whole-second boundary
+    const msUntilNextSecond = 1000 - (Date.now() % 1000) + 100;
+    _satTimer = setTimeout(tick, msUntilNextSecond);
+  }
+  // fire first tick aligned to next second boundary
+  _satTimer = setTimeout(tick, 1000 - (Date.now() % 1000) + 100);
 }
 
 function _toggleTiangong() {

@@ -180,6 +180,14 @@
       text-decoration: underline;
     }
 
+    .control-touch {
+      display: none;
+      text-align: left;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.02em;
+    }
+
     @media (max-width: 600px) {
       .page {
         justify-content: flex-start;
@@ -188,8 +196,18 @@
       .controls {
         grid-template-columns: auto auto;
       }
-      .control-kb {
+      .control-kb,
+      .control-key {
         display: none;
+      }
+      .control-touch {
+        display: block;
+      }
+      .desktop-only {
+        display: none;
+      }
+      .control-zoom > * {
+        margin-top: 0 !important;
       }
     }
   </style>
@@ -212,7 +230,7 @@
     <div class="sub">
       <div class="description" style="font-weight: 700;">User Generated Orbit</div>
       <div style="font-size: clamp(12px, 2.0vw, 36px); font-weight: 400; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">Navigate your world</div>
-      <div style="margin-top: 38px; font-family: 'Inter', sans-serif; font-size: 14px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">TIP: try a UGO with the search bar (<a href="/sightings" class="examples-link">examples</a>)</div>
+      <div style="margin-top: 38px; font-family: 'Inter', sans-serif; font-size: 14px; letter-spacing: 0.04em; color: rgba(0, 0, 0, 0.55);">TIP: try UGO with the search bar (<a href="/sightings" class="examples-link">sightings</a>)</div>
     </div>
 
     <div class="controls">
@@ -220,62 +238,70 @@
         <span class="control-action">move:</span>
         <span class="control-kb">← ↑ → ↓</span>
         <span class="control-key">click + drag</span>
+        <span class="control-touch">drag</span>
       </div>
       <div class="control">
         <span class="control-action">tilt:</span>
         <span class="control-kb">Shift ↑ ↓</span>
         <span class="control-key">click + drag + <em>shift</em></span>
+        <span class="control-touch">2-finger drag</span>
       </div>
       <div class="control">
         <span class="control-action">rotate:</span>
         <span class="control-kb">Shift ← →</span>
         <span class="control-key" style="opacity:0.5">click + drag + <em>shift</em></span>
+        <span class="control-touch">2-finger twist</span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action">fpv:</span>
         <span class="control-kb"></span>
         <span class="control-key">click + drag + <em>ctrl</em></span>
+        <span class="control-touch"></span>
       </div>
-      <div class="control">
+      <div class="control control-zoom">
         <span class="control-action" style="margin-top:30px">zoom:</span>
         <span class="control-kb" style="margin-top:30px">+ / −</span>
-        <span class="control-key" style="margin-top:30px">2-finger drag</span>
+        <span class="control-key" style="margin-top:30px">scroll</span>
+        <span class="control-touch" style="margin-top:30px">pinch</span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action">up / down:</span>
         <span class="control-kb">Shift ← →</span>
         <span class="control-key">2-finger drag + <em>shift</em></span>
+        <span class="control-touch"></span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action"></span>
         <span class="control-kb"></span>
         <span class="control-key"></span>
+        <span class="control-touch"></span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action">center Earth:</span>
         <span class="control-kb">r</span>
         <span class="control-key"></span>
+        <span class="control-touch"></span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action" style="margin-top:30px">show / hide UI:</span>
         <span class="control-kb" style="margin-top:30px">tab</span>
         <span class="control-key" style="margin-top:30px"></span>
+        <span class="control-touch"></span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action">full screen on / off:</span>
         <span class="control-kb">f</span>
         <span class="control-key"></span>
+        <span class="control-touch"></span>
       </div>
-      <div class="control">
+      <div class="control desktop-only">
         <span class="control-action">metrics:</span>
         <span class="control-kb">'</span>
         <span class="control-key"></span>
+        <span class="control-touch"></span>
       </div>
     </div>
 
-    <div class="contact">
-      Spotted an interesting UGO? Share it → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a>
-    </div>
 
   </div>
 

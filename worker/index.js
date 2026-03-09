@@ -18,7 +18,7 @@ export default {
     // ISS position — cached for 1 second
     if (url.pathname === '/iss') {
       const now = Date.now();
-      if (!issCache || now - issCacheTime > 1000) {
+      if (!issCache || now - issCacheTime > 800) {
         const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         issCache = await res.text();
         issCacheTime = now;

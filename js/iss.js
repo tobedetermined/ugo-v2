@@ -50,11 +50,14 @@ class SatTracker {
         lng   = pos.satlongitude;
         altKm = pos.sataltitude;
       } else {
-        const workerUrl = (window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev') + '/iss';
-        const res  = await fetch(workerUrl);
+        const res  = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
         if (res.status === 429) return null;
         const data = await res.json();
         if (typeof data.latitude !== 'number') return null;
+        const delta = data.timestamp - (this._lastTimestamp || data.timestamp);
+        console.log('ISS ts:', data.timestamp, 'Δ:', delta, 's');
+        if (data.timestamp === this._lastTimestamp) return null;
+        this._lastTimestamp = data.timestamp;
         lat   = data.latitude;
         lng   = data.longitude;
         altKm = data.altitude;
