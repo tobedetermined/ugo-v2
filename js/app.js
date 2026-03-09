@@ -31,9 +31,11 @@ const _metrics = {
   elevationRequests:  0,
   elevationLocations: 0,
   maxAltitude:        null,
+  minAltitude:        null,
   distance:           0,
   _lastEyeLat:        null,
   _lastEyeLng:        null,
+  _lastEyeAlt:        null,
 };
 
 // Called by the Maps JS API once it has loaded (callback=initMap in script tag)
@@ -119,12 +121,6 @@ async function initMap() {
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', () => map.focus());
   });
-
-  // NOTE: Hiding this banner likely violates Google Maps Platform ToS (Section 11.4)
-  // const _bannerObserver = new MutationObserver(() => {
-  //   document.querySelectorAll('[aria-label*="alpha channel"]').forEach(el => el.remove());
-  // });
-  // _bannerObserver.observe(document.body, { childList: true, subtree: true });
 
   // Keyboard shortcuts — capture phase so we intercept before the map handles them
   document.addEventListener('keydown', _onKeyDown, true);
@@ -280,9 +276,11 @@ function _onRecordButton() {
     visualizer.clear();
     document.getElementById('btn-fill').classList.remove('active');
     _metrics.maxAltitude = null;
+    _metrics.minAltitude = null;
     _metrics.distance    = 0;
     _metrics._lastEyeLat = null;
     _metrics._lastEyeLng = null;
+    _metrics._lastEyeAlt = null;
 
     recorder.onFrame = (frameCount) => {
       _metrics.frameCount = frameCount;
@@ -827,36 +825,40 @@ function _enterState(state) {
 function _updateCameraReadout() {
   if (!map.center) return;
   const f = (n, d) => (n != null ? n.toFixed(d) : '—');
-  document.getElementById('c-lat').textContent   = f(map.center.lat, 6);
-  document.getElementById('c-lng').textContent   = f(map.center.lng, 6);
+
+  // Use cameraPosition (beta) for accurate eye position; fall back to computed
+  const camPos = map.cameraPosition;
   const tiltRad = (map.tilt || 0) * Math.PI / 180;
-  const eyeAlt  = (map.center.altitude || 0) + (map.range || 0) * Math.cos(tiltRad);
+  const eyeLat  = camPos?.lat      ?? map.center.lat;
+  const eyeLng  = camPos?.lng      ?? map.center.lng;
+  const eyeAlt  = camPos?.altitude ?? ((map.center.altitude || 0) + (map.range || 0) * Math.cos(tiltRad));
+
+  document.getElementById('c-lat').textContent   = f(eyeLat, 6);
+  document.getElementById('c-lng').textContent   = f(eyeLng, 6);
   document.getElementById('c-alt').textContent   = f(eyeAlt, 0) + ' m';
   document.getElementById('c-range').textContent = f(map.range, 0) + ' m';
   document.getElementById('c-tilt').textContent  = f(map.tilt, 1) + '°';
   document.getElementById('c-hdg').textContent   = f(map.heading, 1) + '°';
+
   if (_appState === 'recording') {
     let hudDirty = false;
     if (_metrics.maxAltitude == null || eyeAlt > _metrics.maxAltitude) {
       _metrics.maxAltitude = eyeAlt;
       hudDirty = true;
     }
-    const EARTH_R    = 6371000;
-    const bearingRad = ((( map.heading || 0) + 180) % 360) * Math.PI / 180;
-    const latRad     = map.center.lat * Math.PI / 180;
-    const lngRad     = map.center.lng * Math.PI / 180;
-    const horizDist  = (map.range || 0) * Math.sin(tiltRad);
-    const angDist    = horizDist / EARTH_R;
-    const eyeLatRad  = Math.asin(Math.sin(latRad) * Math.cos(angDist) + Math.cos(latRad) * Math.sin(angDist) * Math.cos(bearingRad));
-    const eyeLngRad  = lngRad + Math.atan2(Math.sin(bearingRad) * Math.sin(angDist) * Math.cos(latRad), Math.cos(angDist) - Math.sin(latRad) * Math.sin(eyeLatRad));
-    const lat = eyeLatRad * 180 / Math.PI;
-    const lng = eyeLngRad * 180 / Math.PI;
-    if (_metrics._lastEyeLat != null) {
-      _metrics.distance += _haversineKm(_metrics._lastEyeLat, _metrics._lastEyeLng, lat, lng);
+    if (_metrics.minAltitude == null || eyeAlt < _metrics.minAltitude) {
+      _metrics.minAltitude = eyeAlt;
       hudDirty = true;
     }
-    _metrics._lastEyeLat = lat;
-    _metrics._lastEyeLng = lng;
+    if (_metrics._lastEyeLat != null) {
+      const horizKm = _haversineKm(_metrics._lastEyeLat, _metrics._lastEyeLng, eyeLat, eyeLng);
+      const vertKm  = Math.abs(eyeAlt - _metrics._lastEyeAlt) / 1000;
+      _metrics.distance += Math.sqrt(horizKm * horizKm + vertKm * vertKm);
+      hudDirty = true;
+    }
+    _metrics._lastEyeLat = eyeLat;
+    _metrics._lastEyeLng = eyeLng;
+    _metrics._lastEyeAlt = eyeAlt;
     if (hudDirty) _updateDevHud();
   }
 }
@@ -940,6 +942,7 @@ function _updateDevHud() {
   document.getElementById('dev-duration').textContent      = _metrics.elapsedMs != null ? _formatDuration(_metrics.elapsedMs) : '—';
   document.getElementById('dev-distance').textContent      = _metrics.distance > 0 ? _metrics.distance.toFixed(1) + ' km' : '—';
   document.getElementById('dev-max-altitude').textContent  = _metrics.maxAltitude != null ? (_metrics.maxAltitude / 1000).toFixed(1) + ' km' : '—';
+  document.getElementById('dev-min-altitude').textContent  = _metrics.minAltitude != null ? (_metrics.minAltitude / 1000).toFixed(1) + ' km' : '—';
   document.getElementById('dev-elev-requests').textContent  = _metrics.elevationRequests;
   document.getElementById('dev-elev-locations').textContent = _metrics.elevationLocations;
   const errEl = document.getElementById('dev-elev-error');
