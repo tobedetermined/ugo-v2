@@ -34,6 +34,7 @@ html, body {
   position: fixed;
   right: 20px;
   bottom: 115px;
+  touch-action: none;
   z-index: 200;
   display: flex;
   flex-direction: column;

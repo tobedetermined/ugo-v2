@@ -260,13 +260,14 @@ function _initDrag() {
     e.preventDefault();
   });
 
-  document.addEventListener('pointermove', e => {
+  handle.addEventListener('pointermove', e => {
     if (!dragging) return;
     panel.style.left = (panelLeft + e.clientX - originX) + 'px';
     panel.style.top  = (panelTop  + e.clientY - originY) + 'px';
   });
 
-  document.addEventListener('pointerup', () => { dragging = false; });
+  handle.addEventListener('pointerup',     () => { dragging = false; });
+  handle.addEventListener('pointercancel', () => { dragging = false; });
 }
 
 // ── Recording flow ────────────────────────────────────────────────────────────
