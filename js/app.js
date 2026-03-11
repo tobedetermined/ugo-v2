@@ -793,8 +793,17 @@ async function _flyToCSS() {
 }
 
 async function _flyToISS() {
-  const pos = issTracker.lastPos;
-  if (!pos) return;
+  let pos = issTracker.lastPos;
+  if (!pos) {
+    const btn = document.getElementById('btn-iss');
+    const orig = btn.textContent;
+    btn.textContent = '…';
+    btn.disabled = true;
+    pos = await issTracker.fetchPosition();
+    btn.textContent = orig;
+    btn.disabled = false;
+    if (!pos) return;
+  }
   map.flyCameraTo({
     endCamera: {
       center:  { lat: pos.lat, lng: pos.lng, altitude: pos.altitudeM },
