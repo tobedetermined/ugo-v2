@@ -413,6 +413,8 @@ html, body {
 .transport-controls-link {
   display: block;
   width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
   background: none;
   border: none;
   text-align: center;
