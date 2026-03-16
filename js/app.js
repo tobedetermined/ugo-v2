@@ -198,6 +198,7 @@ function _onKeyDown(e) {
     const els = ['transport', 'search-bar'].map(id => document.getElementById(id));
     const hide = !els[0].classList.contains('ui-hidden');
     els.forEach(el => el.classList.toggle('ui-hidden', hide));
+    document.getElementById('site-nav').classList.toggle('nav-autohidden', hide);
     return;
   }
 
@@ -261,29 +262,32 @@ function _initNavAutohide() {
   const nav  = document.getElementById('site-nav');
   const zone = document.getElementById('nav-hover-zone');
   let hideTimer = null;
+  let initialHideDone = false;
 
   function hideNav() {
     nav.classList.add('nav-autohidden');
+    initialHideDone = true;
   }
 
   function showNav() {
+    if (!initialHideDone) return;
     clearTimeout(hideTimer);
     nav.classList.remove('nav-autohidden');
   }
 
-  function scheduleHide(delay = 1000) {
+  function scheduleHide() {
     clearTimeout(hideTimer);
-    hideTimer = setTimeout(hideNav, delay);
+    hideTimer = setTimeout(hideNav, 3000);
   }
 
-  // Hide after 8s on load, then enable hover-to-show behaviour
-  hideTimer = setTimeout(() => {
-    hideNav();
-    [zone, nav].forEach(el => {
-      el.addEventListener('mouseenter', showNav);
-      el.addEventListener('mouseleave', () => scheduleHide(3000));
-    });
-  }, 8000);
+  // Hide after 8s on load — hover won't interfere during this window
+  setTimeout(hideNav, 8000);
+
+  // Hover to show/hide — active immediately but showNav is a no-op until initial hide
+  [zone, nav].forEach(el => {
+    el.addEventListener('mouseenter', showNav);
+    el.addEventListener('mouseleave', scheduleHide);
+  });
 }
 
 // ── Drag to reposition panel ──────────────────────────────────────────────────
