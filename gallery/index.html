@@ -6,9 +6,11 @@
   <title>UGO — Gallery</title>
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    a { color: inherit; text-decoration: none; }
 
     body {
       background: #fff;
@@ -46,28 +48,36 @@
       color: #000;
     }
 
-    .nav {
+    nav {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.25rem 2rem;
       display: flex;
-      gap: 18px;
+      align-items: center;
+      gap: 2rem;
+      font-family: 'Space Mono', monospace;
       font-size: 11px;
       letter-spacing: 0.08em;
-      padding: 20px 28px;
-      background: #fff;
-      z-index: 100;
+      color: rgba(0,0,0,0.4);
+      border-bottom: 0.5px solid rgba(0,0,0,0.06);
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(12px);
     }
 
-    .nav a {
-      color: rgba(0,0,0,0.7);
+    nav .logo {
+      color: #111;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+    }
+
+    nav a {
+      color: rgba(0,0,0,0.4);
       text-decoration: none;
-      transition: color 0.15s;
+      transition: color 0.2s;
     }
-
-    .nav a:hover { color: #ff2020; }
-    .nav a.current { color: #000; font-weight: 500; pointer-events: none; }
+    nav a:hover { color: #111; }
 
     #status {
       font-size: 16px;
@@ -219,27 +229,33 @@
       border-color: rgba(255,180,50,0.7);
     }
     footer {
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      color: rgba(0, 0, 0, 0.45);
+      position: relative;
+      z-index: 10;
+      padding: 2rem;
+      margin-top: 4rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: rgba(0,0,0,0.2);
+      display: flex;
+      justify-content: space-between;
+      letter-spacing: 0.08em;
+      border-top: 0.5px solid rgba(0,0,0,0.06);
     }
 
     footer a {
-      color: #ff2020;
+      color: rgba(0,0,0,0.4);
       text-decoration: none;
     }
 
-    footer a:hover {
-      text-decoration: underline;
-    }
+    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 
-  <nav class="nav">
-    <a href="/">UGO</a>
+  <nav>
+    <a href="/" class="logo">UGO</a>
     <a href="/about">about</a>
-    <a href="/gallery" class="current">gallery</a>
+    <a href="/gallery" style="color: #111;">gallery</a>
     <a href="/sightings">sightings</a>
   </nav>
 
@@ -249,7 +265,7 @@
         <h1>Gallery</h1>
         <span id="status">loading…</span>
       </div>
-      <footer>Want to share your UGO? → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a></footer>
+      <div style="font-size: 12px; color: rgba(0,0,0,0.45); letter-spacing: 0.04em; margin-top: 6px;">Want to share your UGO? → <a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a></div>
     </div>
     <!-- motion type filter — re-enable once tagging is verified
     <div id="filters">
@@ -763,6 +779,10 @@
     load();
   </script>
 
+<footer>
+  <span>Contact<br><a href="mailto:alex@usergeneratedorbit.com">alex@usergeneratedorbit.com</a></span>
+  <span>UGO - User Generated Orbit .:. 2026</span>
+</footer>
 
 </body>
 </html>

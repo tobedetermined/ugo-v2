@@ -343,28 +343,33 @@ html, body {
 
 #site-nav {
   position: fixed;
-  top: 20px;
-  left: 28px;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  padding: 1.25rem 2rem;
   display: flex;
-  gap: 18px;
-  font-family: 'Courier New', Courier, monospace;
+  align-items: center;
+  gap: 2rem;
+  font-family: 'Space Mono', monospace;
   font-size: 11px;
   letter-spacing: 0.08em;
-  z-index: 10;
+}
+
+#site-nav .logo {
+  color: rgba(255,255,255,0.95);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
 }
 
 #site-nav a {
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.55);
   text-decoration: none;
   transition: color 0.15s;
-}
-
-.page-map #site-nav a {
-  color: rgba(255,255,255,0.85);
   text-shadow: 0 1px 5px rgba(0,0,0,0.8);
 }
 
-#site-nav a:hover { color: #ff2020; }
+#site-nav a:hover { color: rgba(255,255,255,0.95); }
 
 #transport-hint {
   text-align: center;

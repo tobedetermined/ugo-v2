@@ -21,3 +21,9 @@ memory/
 
 # Personal notes (never commit)
 ALEXNOTES
+
+# Local files (never commit)
+UGO-local-files/
+
+# Old about page backup (never commit)
+about-old/
