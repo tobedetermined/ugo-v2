@@ -281,7 +281,7 @@ function _initNavAutohide() {
     hideNav();
     [zone, nav].forEach(el => {
       el.addEventListener('mouseenter', showNav);
-      el.addEventListener('mouseleave', () => scheduleHide(1000));
+      el.addEventListener('mouseleave', () => scheduleHide(3000));
     });
   }, 8000);
 }
