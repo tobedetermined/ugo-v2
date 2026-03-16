@@ -39,7 +39,9 @@ let tiangongTracker;
 let _satTimer = null;
 let scheduleNavHide = () => {}; // set by _initNavAutohide, used by Tab handler
 
-const isTouch = window.matchMedia('(pointer: coarse)').matches;
+const isTouch = window.matchMedia('(pointer: coarse)').matches
+             || navigator.maxTouchPoints > 0
+             || ('ontouchstart' in window);
 
 const _metrics = {
   elevationRequests:  0,
