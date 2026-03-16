@@ -165,7 +165,7 @@ async function initMap() {
     const saved = localStorage.getItem('ugo-session');
     if (returning && saved) _restoreSession(saved);
     if (!returning) {
-      new WelcomeMessage(map, INITIAL_CAMERA, { onDismiss: hideNav }).show();
+      new WelcomeMessage(map, INITIAL_CAMERA, { onDismiss: () => setTimeout(hideNav, 3000) }).show();
     } else {
       setTimeout(hideNav, 8000);
     }
@@ -268,12 +268,7 @@ function _initNavAutohide() {
   let initialHideDone = false;
 
   function hideNav() {
-    if (!initialHideDone) {
-      // Match the welcome message 2s fade-out on the first hide
-      nav.style.transitionDuration = '2s';
-      setTimeout(() => { nav.style.transitionDuration = ''; }, 2200);
-      initialHideDone = true;
-    }
+    initialHideDone = true;
     nav.classList.add('nav-autohidden');
   }
 
