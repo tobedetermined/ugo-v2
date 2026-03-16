@@ -276,14 +276,14 @@ function _initNavAutohide() {
     hideTimer = setTimeout(hideNav, delay);
   }
 
-  // Hide after 5s on load
-  hideTimer = setTimeout(hideNav, 5000);
-
-  // Show when hovering the zone or nav, hide when leaving
-  [zone, nav].forEach(el => {
-    el.addEventListener('mouseenter', showNav);
-    el.addEventListener('mouseleave', () => scheduleHide(1000));
-  });
+  // Hide after 5s on load, then enable hover-to-show behaviour
+  hideTimer = setTimeout(() => {
+    hideNav();
+    [zone, nav].forEach(el => {
+      el.addEventListener('mouseenter', showNav);
+      el.addEventListener('mouseleave', () => scheduleHide(1000));
+    });
+  }, 5000);
 }
 
 // ── Drag to reposition panel ──────────────────────────────────────────────────

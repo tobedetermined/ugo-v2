@@ -59,8 +59,12 @@ export default {
           return { id: g.id, filename, rawUrl: g.files[filename].raw_url, description: g.description, createdAt: g.created_at };
         });
 
+      // Filter hidden gists unless the request is authenticated
+      const isAuth = request.headers.get('X-Edit-Key') === env.UGO_EDIT_KEY;
+      const visibleGists = isAuth ? ugoGists : ugoGists.filter(g => !(g.description || '').includes('[hidden]'));
+
       // For each gist, get pre-computed path data from KV or parse KML once
-      const cards = await Promise.all(ugoGists.map(async gist => {
+      const cards = await Promise.all(visibleGists.map(async gist => {
         const kvKey = `card-path-v2-${gist.id}`;
         let pathData = await env.GEO_CACHE.get(kvKey, 'json');
 

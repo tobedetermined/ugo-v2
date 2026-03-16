@@ -297,6 +297,7 @@
       editMode = !editMode;
       document.body.classList.toggle('edit-mode', editMode);
       document.getElementById('btn-edit').classList.toggle('active', editMode);
+      load(editMode ? editKey : null);
     });
 
     const GEO_CACHE_VERSION = '4';
@@ -305,13 +306,17 @@
       localStorage.setItem('ugo-geo-cache-version', GEO_CACHE_VERSION);
     }
 
-    async function load() {
+    async function load(key = null) {
       const status = document.getElementById('status');
       const grid   = document.getElementById('grid');
 
+      status.textContent = 'loading…';
+      grid.innerHTML = '';
+
       let cards;
       try {
-        const res = await fetch(`${WORKER}/gists/cards`);
+        const headers = key ? { 'X-Edit-Key': key } : {};
+        const res = await fetch(`${WORKER}/gists/cards`, { headers });
         cards     = await res.json();
       } catch (e) {
         status.textContent = 'could not load';
@@ -323,8 +328,7 @@
         return;
       }
 
-      const visible = cards.filter(c => !(c.description || '').includes('[hidden]'));
-      status.textContent = `${visible.length} UGO${visible.length !== 1 ? 's' : ''}`;
+      status.textContent = `${cards.length} UGO${cards.length !== 1 ? 's' : ''}`;
 
       for (const card of cards) {
         grid.appendChild(buildCard(card));
