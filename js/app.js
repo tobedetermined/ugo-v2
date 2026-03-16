@@ -141,6 +141,13 @@ async function initMap() {
 
   _initDrag();
 
+  // Touch devices: swap hint text and hide desktop-only controls
+  if (isTouch) {
+    document.querySelector('.hint-kb').style.display    = 'none';
+    document.querySelector('.hint-touch').style.display = 'inline';
+    document.getElementById('btn-controls-help').style.display = 'none';
+  }
+
   // Touch devices: tap the map to toggle UI visibility.
   // Listening directly on `map` (not document) because gmp-map-3d's shadow DOM
   // may swallow touch events before they bubble to document on some browsers.
