@@ -1,6 +1,59 @@
 let issCache = null;
 let issCacheTime = 0;
 
+// Parse downsampled path data from KML text
+function parsePathFromKml(kmlText) {
+  const m = kmlText.match(/<value><!\[CDATA\[([\s\S]*?)\]\]><\/value>/);
+  if (!m) return null;
+  const rec = JSON.parse(m[1].trim());
+  const allFrames = rec.segments.flat();
+  const path = rec.segments.map(seg => {
+    const step = Math.max(1, Math.floor(seg.length / 100));
+    const pts = [];
+    for (let i = 0; i < seg.length; i += step) {
+      pts.push({ lat: +seg[i].eye.lat.toFixed(5), lng: +seg[i].eye.lng.toFixed(5) });
+    }
+    const last = seg[seg.length - 1];
+    if (pts[pts.length - 1].lat !== +last.eye.lat.toFixed(5)) {
+      pts.push({ lat: +last.eye.lat.toFixed(5), lng: +last.eye.lng.toFixed(5) });
+    }
+    return pts;
+  });
+  return {
+    path,
+    metadata: {
+      boundingBox:     rec.metadata.boundingBox,
+      totalDurationMs: rec.metadata.totalDurationMs,
+      distance:        rec.metadata.distance   || null,
+      motionType:      rec.metadata.motionType || 'manual',
+    },
+    firstFrame: { lat: allFrames[0].eye.lat,                    lng: allFrames[0].eye.lng },
+    lastFrame:  { lat: allFrames[allFrames.length - 1].eye.lat, lng: allFrames[allFrames.length - 1].eye.lng },
+  };
+}
+
+// Build card list from ugo-paths R2 bucket
+async function buildCards(env, includeHidden = false) {
+  const visObj = await env.UGO_GALLERY.get('visibility.json');
+  const visibility = visObj ? await visObj.json() : { hidden: [] };
+  const hiddenSet = new Set(visibility.hidden);
+
+  const listed = await env.UGO_PATHS.list();
+  const cards = await Promise.all(
+    listed.objects.map(async obj => {
+      const ugoId = obj.key.replace('.path.json', '');
+      if (!includeHidden && hiddenSet.has(ugoId)) return null;
+      const pathObj = await env.UGO_PATHS.get(obj.key);
+      if (!pathObj) return null;
+      const data = await pathObj.json();
+      return { ugoId, hidden: hiddenSet.has(ugoId), ...data };
+    })
+  );
+  return cards
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -28,116 +81,91 @@ export default {
       });
     }
 
-    // List all UGO gists
+    // List all UGO gists (paginated) — used by migration scripts
     if (url.pathname === '/gists') {
-      const res   = await fetch('https://api.github.com/gists?per_page=100', {
-        headers: { 'Authorization': 'Bearer ' + env.usergeneratedorbitbot, 'User-Agent': 'ugo-bot' },
-      });
-      const gists = await res.json();
-      const ugoGists = gists
-        .filter(g => Object.keys(g.files).some(f => f.startsWith('ugo-') && f.endsWith('.kml')))
-        .map(g => {
-          const filename = Object.keys(g.files).find(f => f.startsWith('ugo-') && f.endsWith('.kml'));
-          return { id: g.id, filename, rawUrl: g.files[filename].raw_url, description: g.description, createdAt: g.created_at };
+      const allGists = [];
+      let page = 1;
+      while (true) {
+        const res   = await fetch(`https://api.github.com/gists?per_page=100&page=${page}`, {
+          headers: { 'Authorization': 'Bearer ' + env.usergeneratedorbitbot, 'User-Agent': 'ugo-bot' },
         });
-      return new Response(JSON.stringify(ugoGists), {
+        const batch = await res.json();
+        if (!Array.isArray(batch) || !batch.length) break;
+        const ugoGists = batch
+          .filter(g => Object.keys(g.files).some(f => f.startsWith('ugo-') && f.endsWith('.kml')))
+          .map(g => {
+            const filename = Object.keys(g.files).find(f => f.startsWith('ugo-') && f.endsWith('.kml'));
+            return { id: g.id, filename, rawUrl: g.files[filename].raw_url, description: g.description, createdAt: g.created_at };
+          });
+        allGists.push(...ugoGists);
+        if (batch.length < 100) break;
+        page++;
+      }
+      return new Response(JSON.stringify(allGists), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Lightweight card index for the gallery — downsampled paths, KV-cached per gist
+    // Gallery card list — served from R2
     if (url.pathname === '/gists/cards') {
-      // Always fetch the gist list fresh so description/hidden status is current
-      const res = await fetch('https://api.github.com/gists?per_page=100', {
-        headers: { 'Authorization': 'Bearer ' + env.usergeneratedorbitbot, 'User-Agent': 'ugo-bot' },
-      });
-      const gists = await res.json();
-      const ugoGists = gists
-        .filter(g => Object.keys(g.files).some(f => f.startsWith('ugo-') && f.endsWith('.kml')))
-        .map(g => {
-          const filename = Object.keys(g.files).find(f => f.startsWith('ugo-') && f.endsWith('.kml'));
-          return { id: g.id, filename, rawUrl: g.files[filename].raw_url, description: g.description, createdAt: g.created_at };
-        });
-
-      // Filter hidden gists unless the request is authenticated
       const isAuth = request.headers.get('X-Edit-Key') === env.UGO_EDIT_KEY;
-      const visibleGists = isAuth ? ugoGists : ugoGists.filter(g => !(g.description || '').includes('[hidden]'));
+      const wantsRebuild = url.searchParams.get('rebuild') === '1';
 
-      // For each gist, get pre-computed path data from KV or parse KML once
-      const cards = await Promise.all(visibleGists.map(async gist => {
-        const kvKey = `card-path-v2-${gist.id}`;
-        let pathData = await env.GEO_CACHE.get(kvKey, 'json');
-
-        if (!pathData) {
-          try {
-            const kmlRes  = await fetch(gist.rawUrl);
-            const kmlText = await kmlRes.text();
-            // Extract the embedded JSON from the CDATA block — no DOMParser in Workers
-            const m = kmlText.match(/<value><!\[CDATA\[([\s\S]*?)\]\]><\/value>/);
-            if (!m) return null;
-            const rec = JSON.parse(m[1].trim());
-
-            const allFrames = rec.segments.flat();
-
-            // Downsample each segment to ≤60 points (plenty for a 260×160 thumbnail)
-            const path = rec.segments.map(seg => {
-              const step = Math.max(1, Math.floor(seg.length / 100));
-              const pts  = [];
-              for (let i = 0; i < seg.length; i += step) {
-                pts.push({ lat: +seg[i].eye.lat.toFixed(5), lng: +seg[i].eye.lng.toFixed(5) });
-              }
-              const last = seg[seg.length - 1];
-              if (pts[pts.length - 1].lat !== +last.eye.lat.toFixed(5)) {
-                pts.push({ lat: +last.eye.lat.toFixed(5), lng: +last.eye.lng.toFixed(5) });
-              }
-              return pts;
-            });
-
-            pathData = {
-              path,
-              metadata: {
-                boundingBox:    rec.metadata.boundingBox,
-                totalDurationMs: rec.metadata.totalDurationMs,
-                distance:       rec.metadata.distance   || null,
-                motionType:     rec.metadata.motionType || 'manual',
-              },
-              firstFrame: { lat: allFrames[0].eye.lat,                     lng: allFrames[0].eye.lng },
-              lastFrame:  { lat: allFrames[allFrames.length - 1].eye.lat,  lng: allFrames[allFrames.length - 1].eye.lng },
-            };
-
-            // Cache permanently — recordings never change after upload
-            await env.GEO_CACHE.put(kvKey, JSON.stringify(pathData));
-          } catch (e) {
-            return null;
-          }
+      // Unauthenticated — serve card-list-gallery.json from R2; build on miss
+      if (!isAuth) {
+        const cached = await env.UGO_GALLERY.get('card-list-gallery.json');
+        if (cached) {
+          return new Response(cached.body, {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' },
+          });
         }
+        const cards = await buildCards(env, false);
+        const body = JSON.stringify(cards);
+        await env.UGO_GALLERY.put('card-list-gallery.json', body, { httpMetadata: { contentType: 'application/json' } });
+        return new Response(body, {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' },
+        });
+      }
 
-        return { id: gist.id, filename: gist.filename, description: gist.description, createdAt: gist.createdAt, ...pathData };
-      }));
+      // Authenticated + rebuild — build public list, store to R2, return it
+      if (wantsRebuild) {
+        const cards = await buildCards(env, false);
+        const body = JSON.stringify(cards);
+        await env.UGO_GALLERY.put('card-list-gallery.json', body, { httpMetadata: { contentType: 'application/json' } });
+        return new Response(body, {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        });
+      }
 
-      return new Response(JSON.stringify(cards.filter(Boolean)), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' },
+      // Authenticated, no rebuild — return all cards including hidden
+      const cards = await buildCards(env, true);
+      return new Response(JSON.stringify(cards), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
 
-    // Find Gist by UGO ID (filename search)
+    // Fetch KML by UGO ID — reads from R2, falls back to GitHub for legacy gist IDs
     if (url.pathname === '/gist-by-ugo') {
-      const ugoId = url.searchParams.get('id');
-      if (!ugoId) return new Response('Missing id', { status: 400, headers: corsHeaders });
+      const id = url.searchParams.get('id');
+      if (!id) return new Response('Missing id', { status: 400, headers: corsHeaders });
 
+      // Try R2 first (fast path)
+      const obj = await env.UGO_RECORDINGS.get(`${id}.kml`);
+      if (obj) return new Response(obj.body, { headers: { ...corsHeaders, 'Content-Type': 'text/xml' } });
+
+      // Fall back to GitHub gist search (legacy gist ID URLs)
       let page = 1;
       while (true) {
-        const res  = await fetch(`https://api.github.com/gists?per_page=100&page=${page}`, {
+        const res   = await fetch(`https://api.github.com/gists?per_page=100&page=${page}`, {
           headers: { 'Authorization': 'Bearer ' + env.usergeneratedorbitbot, 'User-Agent': 'ugo-bot' },
         });
         const gists = await res.json();
         if (!gists.length) break;
-
-        const match = gists.find(g => Object.keys(g.files).some(f => f.includes(ugoId)));
+        const match = gists.find(g => Object.keys(g.files).some(f => f.includes(id)));
         if (match) {
-          const file   = Object.values(match.files)[0];
-          const raw    = await fetch(file.raw_url);
-          const kml    = await raw.text();
+          const file = Object.values(match.files)[0];
+          const raw  = await fetch(file.raw_url);
+          const kml  = await raw.text();
           return new Response(kml, { headers: { ...corsHeaders, 'Content-Type': 'text/xml' } });
         }
         if (gists.length < 100) break;
@@ -146,16 +174,16 @@ export default {
       return new Response('UGO not found', { status: 404, headers: corsHeaders });
     }
 
-    // Reverse geocode with KV cache
+    // Reverse geocode — cached in UGO_GEOCODES KV, keyed by ugoId
     if (url.pathname === '/geocode') {
-      const gistId   = url.searchParams.get('gistId');
+      const ugoId   = url.searchParams.get('ugoId');
       const startLat = url.searchParams.get('startLat');
       const startLng = url.searchParams.get('startLng');
       const endLat   = url.searchParams.get('endLat');
       const endLng   = url.searchParams.get('endLng');
-      if (!gistId || !startLat || !startLng) return new Response('Missing params', { status: 400, headers: corsHeaders });
+      if (!ugoId || !startLat || !startLng) return new Response('Missing params', { status: 400, headers: corsHeaders });
 
-      const cached = await env.GEO_CACHE.get(gistId);
+      const cached = await env.UGO_GEOCODES.get(ugoId);
       if (cached && cached !== '—' && !cached.includes('County')) return new Response(cached, { headers: { ...corsHeaders, 'Content-Type': 'text/plain' } });
 
       async function geocodeName(lat, lng) {
@@ -185,33 +213,38 @@ export default {
         label = `${start} → ${end}`;
       }
 
-      await env.GEO_CACHE.put(gistId, label);
+      await env.UGO_GEOCODES.put(ugoId, label);
       return new Response(label, { headers: { ...corsHeaders, 'Content-Type': 'text/plain' } });
     }
 
-    // Gist description update (toggle [hidden] tag)
-    if (request.method === 'PATCH' && url.pathname === '/gist') {
+    // Visibility toggle — updates visibility.json in ugo-gallery R2
+    if (request.method === 'PATCH' && url.pathname === '/ugo') {
       if (request.headers.get('X-Edit-Key') !== env.UGO_EDIT_KEY) {
         return new Response('Unauthorized', { status: 401, headers: corsHeaders });
       }
-      const { id, description } = await request.json();
-      if (!id) return new Response('Missing id', { status: 400, headers: corsHeaders });
-      const resp = await fetch(`https://api.github.com/gists/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + env.usergeneratedorbitbot,
-          'Content-Type': 'application/json',
-          'User-Agent': 'ugo-bot',
-        },
-        body: JSON.stringify({ description }),
+      const { ugoId, hidden } = await request.json();
+      if (!ugoId) return new Response('Missing ugoId', { status: 400, headers: corsHeaders });
+
+      const visObj = await env.UGO_GALLERY.get('visibility.json');
+      const visibility = visObj ? await visObj.json() : { hidden: [] };
+      const hiddenSet = new Set(visibility.hidden);
+      if (hidden) hiddenSet.add(ugoId);
+      else hiddenSet.delete(ugoId);
+      visibility.hidden = [...hiddenSet];
+
+      await env.UGO_GALLERY.put('visibility.json', JSON.stringify(visibility), {
+        httpMetadata: { contentType: 'application/json' },
       });
-      return new Response(resp.body, { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Gist save
+    // Save new recording — writes to R2 and GitHub gist
     const { filename, content, description } = await request.json();
 
-    const resp = await fetch('https://api.github.com/gists', {
+    // Save to GitHub gist (backup)
+    const gistResp = await fetch('https://api.github.com/gists', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + env.usergeneratedorbitbot,
@@ -224,9 +257,31 @@ export default {
         files: { [filename]: { content } },
       }),
     });
+    const gist = await gistResp.json();
 
-    return new Response(resp.body, {
-      status: resp.status,
+    // Write to R2
+    const ugoMatch = filename.match(/ugo-([0-9a-f-]{36})\.kml/i);
+    if (ugoMatch) {
+      const ugoId = ugoMatch[1].replace(/-/g, '');
+      const pathData = parsePathFromKml(content);
+      if (pathData) {
+        await env.UGO_RECORDINGS.put(`${ugoId}.kml`, content, {
+          httpMetadata: { contentType: 'application/vnd.google-earth.kml+xml' },
+        });
+        await env.UGO_PATHS.put(`${ugoId}.path.json`, JSON.stringify({
+          ...pathData,
+          gistId:      gist.id || null,
+          filename,
+          description: description || '',
+          createdAt:   new Date().toISOString(),
+        }), {
+          httpMetadata: { contentType: 'application/json' },
+        });
+      }
+    }
+
+    return new Response(JSON.stringify(gist), {
+      status: gistResp.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   },

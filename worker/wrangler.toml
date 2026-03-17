@@ -5,3 +5,19 @@ compatibility_date = "2024-01-01"
 [[kv_namespaces]]
 binding = "GEO_CACHE"
 id = "acec3fb951ea461aa681057470f54120"
+
+[[kv_namespaces]]
+binding = "UGO_GEOCODES"
+id = "26fac0f17d5f4006a4fd01aafbaf97be"
+
+[[r2_buckets]]
+binding = "UGO_RECORDINGS"
+bucket_name = "ugo-recordings"
+
+[[r2_buckets]]
+binding = "UGO_PATHS"
+bucket_name = "ugo-paths"
+
+[[r2_buckets]]
+binding = "UGO_GALLERY"
+bucket_name = "ugo-gallery"

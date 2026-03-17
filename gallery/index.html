@@ -287,26 +287,33 @@
     let editMode = false;
     let editKey  = window.UGO_EDIT_KEY || sessionStorage.getItem('ugo-edit-key') || '';
 
-    document.getElementById('btn-edit').addEventListener('click', () => {
+    document.getElementById('btn-edit').addEventListener('click', async () => {
       if (!editMode) {
+        // Entering edit mode
         const key = editKey || prompt('Edit key:');
         if (!key) return;
         editKey = key;
         sessionStorage.setItem('ugo-edit-key', key);
+        editMode = true;
+        document.body.classList.add('edit-mode');
+        document.getElementById('btn-edit').classList.add('active');
+        load(editKey);
+      } else {
+        // Exiting edit mode — rebuild public cache then display it
+        editMode = false;
+        document.body.classList.remove('edit-mode');
+        document.getElementById('btn-edit').classList.remove('active');
+        load(editKey, { rebuild: true });
       }
-      editMode = !editMode;
-      document.body.classList.toggle('edit-mode', editMode);
-      document.getElementById('btn-edit').classList.toggle('active', editMode);
-      load(editMode ? editKey : null);
     });
 
-    const GEO_CACHE_VERSION = '4';
+    const GEO_CACHE_VERSION = '5';
     if (localStorage.getItem('ugo-geo-cache-version') !== GEO_CACHE_VERSION) {
       Object.keys(localStorage).filter(k => k.startsWith('ugo-geo-')).forEach(k => localStorage.removeItem(k));
       localStorage.setItem('ugo-geo-cache-version', GEO_CACHE_VERSION);
     }
 
-    async function load(key = null) {
+    async function load(key = null, { rebuild = false } = {}) {
       const status = document.getElementById('status');
       const grid   = document.getElementById('grid');
 
@@ -315,8 +322,11 @@
 
       let cards;
       try {
-        const headers = key ? { 'X-Edit-Key': key } : {};
-        const res = await fetch(`${WORKER}/gists/cards`, { headers });
+        const url = `${WORKER}/gists/cards${rebuild ? '?rebuild=1' : ''}`;
+        const fetchOptions = key
+          ? { headers: { 'X-Edit-Key': key }, cache: 'no-store' }
+          : { headers: {} };
+        const res = await fetch(url, fetchOptions);
         cards     = await res.json();
       } catch (e) {
         status.textContent = 'could not load';
@@ -337,7 +347,7 @@
       // Reverse-geocode — use localStorage cache, only call Nominatim for misses
       const toFetch = [];
       for (const el of grid.querySelectorAll('.card-location[data-start-lat]')) {
-        const cacheKey = `ugo-geo-${el.dataset.gistId}`;
+        const cacheKey = `ugo-geo-${el.dataset.ugoId}`;
         const cached   = localStorage.getItem(cacheKey);
         if (cached) {
           el.textContent = cached;
@@ -352,30 +362,25 @@
       }
     }
 
-    async function toggleHidden(gist, card) {
-      const desc    = gist.description || '';
-      const isHidden = desc.includes('[hidden]');
-      const newDesc  = isHidden
-        ? desc.replace(/\s*\[hidden\]/, '').trim()
-        : (desc + ' [hidden]').trim();
-
-      const btn = card.querySelector('.card-hide-btn');
+    async function toggleHidden(card, el) {
+      const isHidden = card.hidden;
+      const btn = el.querySelector('.card-hide-btn');
       btn.textContent = '···';
       btn.disabled = true;
 
       try {
-        const resp = await fetch(`${WORKER}/gist`, {
+        const resp = await fetch(`${WORKER}/ugo`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'X-Edit-Key': editKey },
-          body: JSON.stringify({ id: gist.id, description: newDesc }),
+          body: JSON.stringify({ ugoId: card.ugoId, hidden: !isHidden }),
         });
         if (resp.status === 401) {
           sessionStorage.removeItem('ugo-edit-key');
           editKey = '';
           throw new Error('Unauthorized');
         }
-        gist.description = newDesc;
-        card.classList.toggle('hidden-card', !isHidden);
+        card.hidden = !isHidden;
+        el.classList.toggle('hidden-card', !isHidden);
         btn.textContent = !isHidden ? 'show' : 'hide';
       } catch (e) {
         btn.textContent = 'error';
@@ -390,16 +395,16 @@
       const date      = new Date(card.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       const tag       = isLocalhost ? ((card.description || '').match(/\[(dev|local)\]/)?.[1]?.toUpperCase() || null) : null;
-      const isHidden  = (card.description || '').includes('[hidden]');
+      const isHidden  = card.hidden;
 
       const a = document.createElement('a');
       a.className          = 'card' + (isHidden ? ' hidden-card' : '');
-      a.href               = `/?ugo=${card.id}`;
+      a.href               = `/?ugo=${card.ugoId}`;
       a.target             = '_blank';
       a.dataset.motionType = card.metadata.motionType || 'manual';
 
       // Globe SVG thumbnail
-      const globeCacheKey = `ugo-globe-v1-${card.id}`;
+      const globeCacheKey = `ugo-globe-v1-${card.ugoId}`;
       const cachedGlobe   = localStorage.getItem(globeCacheKey);
       let globeSvg;
       if (cachedGlobe) {
@@ -451,7 +456,7 @@
       loc.dataset.startLng = card.firstFrame.lng;
       loc.dataset.endLat   = card.lastFrame.lat;
       loc.dataset.endLng   = card.lastFrame.lng;
-      loc.dataset.gistId   = card.id;
+      loc.dataset.ugoId    = card.ugoId;
       meta.appendChild(loc);
 
       const details = document.createElement('div');
@@ -758,13 +763,13 @@
     }
 
     async function reverseGeocode(el) {
-      const { startLat, startLng, endLat, endLng, gistId } = el.dataset;
+      const { startLat, startLng, endLat, endLng, ugoId } = el.dataset;
       try {
-        const res   = await fetch(`${WORKER}/geocode?gistId=${gistId}&startLat=${startLat}&startLng=${startLng}&endLat=${endLat}&endLng=${endLng}`);
+        const res   = await fetch(`${WORKER}/geocode?ugoId=${ugoId}&startLat=${startLat}&startLng=${startLng}&endLat=${endLat}&endLng=${endLng}`);
         const label = await res.text();
         el.textContent = label;
         el.classList.remove('loading');
-        if (label !== '—') localStorage.setItem(`ugo-geo-${gistId}`, label);
+        if (label !== '—') localStorage.setItem(`ugo-geo-${ugoId}`, label);
       } catch (e) {
         el.textContent = '—';
         el.classList.remove('loading');

@@ -63,15 +63,12 @@ async function initMap() {
   let startCamera = (!params.has('ugo') && !returning) ? WELCOME_CAMERA : INITIAL_CAMERA;
   if (params.has('ugo')) {
     try {
-      const gistId = params.get('ugo');
+      const ugoId = params.get('ugo');
       const workerBase = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
 
       // Fetch the UGO to get its location, then open from a globe-level view above it.
       // Store the parsed recording so _loadFromGist can reuse it without a second fetch.
-      const kmlText = await (gistId.startsWith('ugo-')
-        ? fetch(`${workerBase}/gist-by-ugo?id=${encodeURIComponent(gistId)}`).then(r => r.text())
-        : fetch(`https://api.github.com/gists/${gistId}`).then(r => r.json())
-            .then(d => fetch(Object.values(d.files)[0].raw_url)).then(r => r.text()));
+      const kmlText = await fetch(`${workerBase}/gist-by-ugo?id=${encodeURIComponent(ugoId)}`).then(r => r.text());
       _preloadedRecording = importKML(kmlText);
       const rec = _preloadedRecording;
       const bb  = rec.metadata.boundingBox;
@@ -717,18 +714,9 @@ async function _loadFromGist(gistId) {
     const workerBase = window.UGO_WORKER_URL || 'https://usergeneratedorbitbot.navarenko.workers.dev';
     let kmlText;
     try {
-      if (gistId.startsWith('ugo-')) {
-        const res = await fetch(`${workerBase}/gist-by-ugo?id=${encodeURIComponent(gistId)}`);
-        if (!res.ok) throw new Error(`UGO not found (${res.status})`);
-        kmlText = await res.text();
-      } else {
-        const res  = await fetch(`https://api.github.com/gists/${gistId}`);
-        if (!res.ok) throw new Error(`Gist not found (${res.status})`);
-        const data = await res.json();
-        const file = Object.values(data.files)[0];
-        const raw  = await fetch(file.raw_url);
-        kmlText    = await raw.text();
-      }
+      const res = await fetch(`${workerBase}/gist-by-ugo?id=${encodeURIComponent(gistId)}`);
+      if (!res.ok) throw new Error(`UGO not found (${res.status})`);
+      kmlText = await res.text();
     } catch (err) {
       _showLoadError();
       return;
