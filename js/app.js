@@ -59,13 +59,12 @@ async function initMap() {
 
   const params = new URLSearchParams(location.search);
   const returning = params.has('ugo') ? true : !!sessionStorage.getItem('ugo-returning');
-  let startCamera = (!params.has('ugo') && !returning) ? WELCOME_CAMERA : INITIAL_CAMERA;
+  let _returnState = null;
   if (returning && !params.has('ugo')) {
-    try {
-      const savedCam = localStorage.getItem('ugo-camera');
-      if (savedCam) startCamera = JSON.parse(savedCam);
-    } catch (e) {}
+    try { _returnState = JSON.parse(sessionStorage.getItem('ugo-return-state')); } catch (e) {}
   }
+  let startCamera = (!params.has('ugo') && !returning) ? WELCOME_CAMERA : INITIAL_CAMERA;
+  if (_returnState?.camera) startCamera = _returnState.camera;
   if (params.has('ugo')) {
     try {
       const ugoId = params.get('ugo');
@@ -170,19 +169,20 @@ async function initMap() {
     }, { passive: true });
   }
 
-  // Mark nav links so we know the user navigated away (not a hard reload)
-  // Also snapshot the current camera so we can restore it on return
+  // Snapshot full app state when navigating away so we can restore on return
   document.querySelectorAll('#site-nav a').forEach(a => {
     a.addEventListener('click', () => {
       sessionStorage.setItem('ugo-returning', '1');
       try {
-        const cam = {
-          center:  { lat: map.center.lat, lng: map.center.lng, altitude: map.center.altitude },
-          range:   map.range,
-          tilt:    map.tilt,
-          heading: map.heading,
+        const state = {
+          camera: { center: { lat: map.center.lat, lng: map.center.lng, altitude: map.center.altitude }, range: map.range, tilt: map.tilt, heading: map.heading },
         };
-        localStorage.setItem('ugo-camera', JSON.stringify(cam));
+        if (_sharedUgoId) {
+          state.gistId = _sharedUgoId;
+        } else if (currentRecording) {
+          state.session = exportKML(currentRecording);
+        }
+        sessionStorage.setItem('ugo-return-state', JSON.stringify(state));
       } catch (e) {}
     });
   });
@@ -192,11 +192,14 @@ async function initMap() {
   if (gistId) {
     _loadFromGist(gistId);
   } else {
-    // Restore last session recording only when returning from another page (not on hard reload)
     sessionStorage.removeItem('ugo-returning');
-    const saved = sessionStorage.getItem('ugo-session');
-    if (returning && saved) _restoreSession(saved);
-    if (!returning) {
+    sessionStorage.removeItem('ugo-return-state');
+    if (_returnState?.gistId) {
+      history.replaceState(null, '', `/?ugo=${encodeURIComponent(_returnState.gistId)}`);
+      _loadFromGist(_returnState.gistId, { skipCameraFly: true });
+    } else if (_returnState?.session) {
+      _restoreSession(_returnState.session);
+    } else if (!returning) {
       new WelcomeMessage(map, INITIAL_CAMERA).show();
     }
   }
@@ -417,7 +420,6 @@ async function _stopRecording() {
 
   // Auto-save to Gist archive
   const kml = exportKML(currentRecording);
-  try { sessionStorage.setItem('ugo-session', kml); } catch (e) {}
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   const isDev   = !isLocal && new URLSearchParams(location.search).has('dev');
   const env     = isLocal ? ' [local]' : isDev ? ' [dev]' : '';
@@ -666,7 +668,7 @@ async function _startTour() {
   _setText('stat-status', 'Tour complete');
 }
 
-async function _loadFromGist(gistId) {
+async function _loadFromGist(gistId, { skipCameraFly = false } = {}) {
   _sharedUgoId = new URLSearchParams(location.search).has('ugo') ? gistId : null;
   _stopPlayback();
 
@@ -731,7 +733,7 @@ async function _loadFromGist(gistId) {
 
   // Fly to PCA-based overview — ease-out cubic, cancels immediately on user interaction.
   const cam = _overviewCamera(recording);
-  if (cam) {
+  if (cam && !skipCameraFly) {
     const DURATION = 7500;
     const start = {
       lat:     map.center?.lat      ?? cam.center.lat,
@@ -762,7 +764,7 @@ async function _loadFromGist(gistId) {
 
 async function _restoreSession(kml) {
   let recording;
-  try { recording = importKML(kml); } catch (e) { sessionStorage.removeItem('ugo-session'); return; }
+  try { recording = importKML(kml); } catch (e) { return; }
   currentRecording = recording;
   _metrics.maxAltitude = recording.metadata.maxAltitude ?? null;
   _metrics.distance    = recording.metadata.distance    ?? 0;
@@ -779,18 +781,18 @@ async function _restoreSession(kml) {
   } catch (e) {}
   _enterState('visualised');
   _setText('stat-status', 'UGO restored');
-  try {
-    const saved = localStorage.getItem('ugo-camera');
-    if (saved) Object.assign(map, JSON.parse(saved));
-  } catch (e) {}
 }
 
 function _clearRecording() {
   _stopPlayback();
   visualizer.clear();
   currentRecording = null;
-  try { sessionStorage.removeItem('ugo-session'); localStorage.removeItem('ugo-camera'); } catch (e) {}
+  _sharedUgoId = null;
+  try { sessionStorage.removeItem('ugo-return-state'); } catch (e) {}
+  if (location.search) history.replaceState(null, '', '/');
   document.getElementById('btn-fill').classList.remove('active');
+  document.getElementById('btn-record').disabled = false;
+  document.getElementById('btn-load').disabled   = false;
   _metrics.maxAltitude = null;
   _metrics.distance    = 0;
   _metrics._lastEyeLat = null;
@@ -802,10 +804,6 @@ function _clearRecording() {
   _metrics.elevationError     = '';
   _updateDevHud();
   _enterState('ready');
-  if (_sharedUgoId) {
-    document.getElementById('btn-record').disabled = true;
-    document.getElementById('btn-load').disabled   = true;
-  }
 }
 
 function _toggleISS() {
@@ -893,22 +891,14 @@ function _resetCamera() {
     recorder.stop();
   }
 
-  // When viewing a shared UGO (?ugo= URL), reset restores the UGO.
-  // If the path is still loaded, just fly back to the overview.
-  // If it was cleared, re-fetch and re-render it.
-  if (_sharedUgoId) {
-    if (currentRecording) {
-      const cam = _overviewCamera(currentRecording);
-      if (cam) map.flyCameraTo({ endCamera: cam, durationMillis: 2000 });
-    } else {
-      _loadFromGist(_sharedUgoId);
-    }
-    return;
-  }
-
   visualizer.clear();
   currentRecording = null;
+  _sharedUgoId = null;
+  try { sessionStorage.removeItem('ugo-return-state'); } catch (e) {}
+  if (location.search) history.replaceState(null, '', '/');
   document.getElementById('btn-fill').classList.remove('active');
+  document.getElementById('btn-record').disabled = false;
+  document.getElementById('btn-load').disabled   = false;
   _metrics.maxAltitude = null;
   _metrics.distance    = 0;
   _metrics._lastEyeLat = null;
