@@ -243,7 +243,7 @@
 
     function open(index) {
       current = (index + allImages.length) % allImages.length;
-      lightboxImg.src = allImages[current];
+      lightboxImg.src = `/sightings/${allImages[current]}`;
       lightbox.classList.add('open');
     }
 
@@ -262,7 +262,7 @@
         thumb.addEventListener('click', () => open(offset + i));
 
         const img = document.createElement('img');
-        img.src = filename;
+        img.src = `/sightings/${filename}`;
         img.alt = '';
         thumb.appendChild(img);
 

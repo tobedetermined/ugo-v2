@@ -37,7 +37,6 @@ let _durationTimer = null;
 let issTracker;
 let tiangongTracker;
 let _satTimer = null;
-let scheduleNavHide = () => {}; // set by _initNavAutohide, used by Tab handler
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches
              || navigator.maxTouchPoints > 0
@@ -61,6 +60,12 @@ async function initMap() {
   const params = new URLSearchParams(location.search);
   const returning = params.has('ugo') ? true : !!sessionStorage.getItem('ugo-returning');
   let startCamera = (!params.has('ugo') && !returning) ? WELCOME_CAMERA : INITIAL_CAMERA;
+  if (returning && !params.has('ugo')) {
+    try {
+      const savedCam = localStorage.getItem('ugo-camera');
+      if (savedCam) startCamera = JSON.parse(savedCam);
+    } catch (e) {}
+  }
   if (params.has('ugo')) {
     try {
       const ugoId = params.get('ugo');
@@ -184,20 +189,15 @@ async function initMap() {
 
   // Load a UGO from a UGO ID passed as ?ugo=ID in the URL
   const gistId = params.get('ugo');
-  const { hideNav, scheduleHide: _scheduleNavHide } = _initNavAutohide();
-  scheduleNavHide = _scheduleNavHide;
   if (gistId) {
     _loadFromGist(gistId);
-    setTimeout(hideNav, 8000);
   } else {
     // Restore last session recording only when returning from another page (not on hard reload)
     sessionStorage.removeItem('ugo-returning');
-    const saved = localStorage.getItem('ugo-session');
+    const saved = sessionStorage.getItem('ugo-session');
     if (returning && saved) _restoreSession(saved);
     if (!returning) {
-      new WelcomeMessage(map, INITIAL_CAMERA, { onDismiss: () => setTimeout(hideNav, 3000) }).show();
-    } else {
-      setTimeout(hideNav, 8000);
+      new WelcomeMessage(map, INITIAL_CAMERA).show();
     }
   }
 
@@ -232,7 +232,6 @@ function _onKeyDown(e) {
     const hide = !els[0].classList.contains('ui-hidden');
     els.forEach(el => el.classList.toggle('ui-hidden', hide));
     document.getElementById('site-nav').classList.toggle('nav-autohidden', hide);
-    if (!hide) scheduleNavHide(3500);
     return;
   }
 
@@ -306,38 +305,6 @@ function _hideMobileUI() {
   document.getElementById('site-nav').classList.add('nav-autohidden');
 }
 
-// ── Nav auto-hide ─────────────────────────────────────────────────────────────
-
-function _initNavAutohide() {
-  const nav  = document.getElementById('site-nav');
-  const zone = document.getElementById('nav-hover-zone');
-  let hideTimer = null;
-  let initialHideDone = false;
-
-  function hideNav() {
-    initialHideDone = true;
-    nav.classList.add('nav-autohidden');
-  }
-
-  function showNav() {
-    if (!initialHideDone) return;
-    clearTimeout(hideTimer);
-    nav.classList.remove('nav-autohidden');
-  }
-
-  function scheduleHide(delay = 3000) {
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(hideNav, delay);
-  }
-
-  // Hover to show/hide — active immediately but showNav is a no-op until initial hide
-  [zone, nav].forEach(el => {
-    el.addEventListener('mouseenter', showNav);
-    el.addEventListener('mouseleave', scheduleHide);
-  });
-
-  return { hideNav, scheduleHide };
-}
 
 // ── Drag to reposition panel ──────────────────────────────────────────────────
 
@@ -450,7 +417,7 @@ async function _stopRecording() {
 
   // Auto-save to Gist archive
   const kml = exportKML(currentRecording);
-  try { localStorage.setItem('ugo-session', kml); } catch (e) {}
+  try { sessionStorage.setItem('ugo-session', kml); } catch (e) {}
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   const isDev   = !isLocal && new URLSearchParams(location.search).has('dev');
   const env     = isLocal ? ' [local]' : isDev ? ' [dev]' : '';
@@ -795,7 +762,7 @@ async function _loadFromGist(gistId) {
 
 async function _restoreSession(kml) {
   let recording;
-  try { recording = importKML(kml); } catch (e) { localStorage.removeItem('ugo-session'); return; }
+  try { recording = importKML(kml); } catch (e) { sessionStorage.removeItem('ugo-session'); return; }
   currentRecording = recording;
   _metrics.maxAltitude = recording.metadata.maxAltitude ?? null;
   _metrics.distance    = recording.metadata.distance    ?? 0;
@@ -822,7 +789,7 @@ function _clearRecording() {
   _stopPlayback();
   visualizer.clear();
   currentRecording = null;
-  try { localStorage.removeItem('ugo-session'); localStorage.removeItem('ugo-camera'); } catch (e) {}
+  try { sessionStorage.removeItem('ugo-session'); localStorage.removeItem('ugo-camera'); } catch (e) {}
   document.getElementById('btn-fill').classList.remove('active');
   _metrics.maxAltitude = null;
   _metrics.distance    = 0;
