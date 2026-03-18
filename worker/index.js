@@ -281,6 +281,8 @@ export default {
         }), {
           httpMetadata: { contentType: 'application/json' },
         });
+        // Invalidate the public gallery cache so the new UGO appears immediately
+        await env.UGO_GALLERY.delete('card-list-gallery.json');
       }
     }
 
