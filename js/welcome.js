@@ -34,6 +34,7 @@ const LETTERS = {
   'I': [ [[1,7],[3,7]], [[2,7],[2,0]], [[1,0],[3,0]] ],
   'N': [ [[0,0],[0,7],[4,0],[4,7]] ],
   'G': [ [[4,6],[2,7],[0,6],[0,1],[2,0],[4,1],[4,3.5],[2,3.5]] ],
+  'U': [ [[0,7],[0,1],[2,0],[4,1],[4,7]] ],
 };
 
 class WelcomeMessage {
@@ -42,10 +43,10 @@ class WelcomeMessage {
   async show() {
     const { Polyline3DElement, Polygon3DElement, AltitudeMode } = await google.maps.importLibrary('maps3d');
     const chars = [
-      {ch:'W',slot:0},{ch:'E',slot:1},{ch:'L',slot:2},{ch:'C',slot:3},
-      {ch:'O',slot:4},{ch:'M',slot:5},{ch:'E',slot:6},
-      {ch:'E',slot:8},{ch:'A',slot:9},{ch:'R',slot:10},{ch:'T',slot:11},{ch:'H',slot:12},
-      {ch:'L',slot:13},{ch:'I',slot:14},{ch:'N',slot:15},{ch:'G',slot:16},
+      {ch:'W',slot:2},{ch:'E',slot:3},{ch:'L',slot:4},{ch:'C',slot:5},
+      {ch:'O',slot:6},{ch:'M',slot:7},{ch:'E',slot:8},
+      {ch:'T',slot:10},{ch:'O',slot:11},
+      {ch:'U',slot:13},{ch:'G',slot:14},{ch:'O',slot:15},
     ];
     const FLY_MS     = 5000;
     const LETTERS_MS = 1000;   // letters start this long after fly begins

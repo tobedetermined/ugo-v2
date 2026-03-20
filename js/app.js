@@ -177,9 +177,8 @@ async function initMap() {
         const state = {
           camera: { center: { lat: map.center.lat, lng: map.center.lng, altitude: map.center.altitude }, range: map.range, tilt: map.tilt, heading: map.heading },
         };
-        if (_sharedUgoId) {
-          state.gistId = _sharedUgoId;
-        } else if (currentRecording) {
+        // Don't restore a shared UGO on return — navigating away from ?ugo= goes to a clean state
+        if (!_sharedUgoId && currentRecording) {
           state.session = exportKML(currentRecording);
         }
         sessionStorage.setItem('ugo-return-state', JSON.stringify(state));
@@ -242,6 +241,11 @@ function _onKeyDown(e) {
     const hide = !document.getElementById('dev-hud').classList.contains('hidden');
     document.getElementById('dev-hud').classList.toggle('hidden', hide);
     document.getElementById('camera-hud').classList.toggle('hidden', hide);
+    return;
+  }
+
+  if (e.key === 'd' || e.key === 'D') {
+    document.getElementById('debug-hud').classList.toggle('hidden');
     return;
   }
 
@@ -720,9 +724,10 @@ async function _loadFromGist(gistId, { skipCameraFly = false } = {}) {
 
   _enterState('visualised');
 
-  // On a shared UGO URL, disable record and load — recording over someone's
-  // UGO would be confusing, and loading would silently replace it.
+  // On a shared UGO URL, hide controls and search, disable record and load.
   if (new URLSearchParams(location.search).has('ugo')) {
+    document.getElementById('transport').classList.add('ui-hidden');
+    document.getElementById('search-bar').classList.add('ui-hidden');
     document.getElementById('btn-record').disabled = true;
     document.getElementById('btn-load').disabled   = true;
     if (!isTouch) {
@@ -811,13 +816,21 @@ function _toggleISS() {
   if (issTracker._visible) {
     issTracker.hide();
     btn.classList.remove('active');
-    document.getElementById('btn-iss').disabled = true;
+    const arrowBtn = document.getElementById('btn-iss');
+    arrowBtn.classList.remove('blink');
+    arrowBtn.disabled = true;
     clearInterval(_satTimer);
     _satTimer = null;
   } else {
     issTracker.show();
     btn.classList.add('active');
-    document.getElementById('btn-iss').disabled = false;
+    // Keep arrow disabled and blinking until first position is rendered.
+    const arrowBtn = document.getElementById('btn-iss');
+    arrowBtn.classList.add('blink');
+    issTracker.onceReady(() => {
+      arrowBtn.classList.remove('blink');
+      arrowBtn.disabled = false;
+    });
     _startSatTimer();
   }
 }
@@ -877,7 +890,7 @@ async function _flyToISS() {
       center:  { lat: pos.lat, lng: pos.lng, altitude: pos.altitudeM },
       tilt:    70,
       heading: 0,
-      range:   1000000,
+      range:   500000,
     },
     durationMillis: 3000,
   });
@@ -997,24 +1010,34 @@ function _updateCameraReadout() {
 async function _onSearch(e) {
   e.preventDefault();
   const query = document.getElementById('search-input').value.trim();
+
   if (!query) return;
 
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-  const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-  const data = await res.json();
-  if (!data.length) return;
+  let result;
+  try {
+    const { Geocoder } = await google.maps.importLibrary('geocoding');
+    const geocoder = new Geocoder();
+    const { results } = await geocoder.geocode({ address: query });
+    if (!results.length) return;
+    result = results[0];
+  } catch (err) {
+    console.error('UGO: geocode failed', err);
+    return;
+  }
+
+  const loc    = result.geometry.location;
+  const vp     = result.geometry.viewport;
+  const diagKm = _haversineKm(vp.getSouthWest().lat(), vp.getSouthWest().lng(), vp.getNorthEast().lat(), vp.getNorthEast().lng());
+  const range  = Math.max(diagKm * 1000 * 0.2, 300);
 
   const FLY_MS = 24000;
-
-  map.flyCameraTo({
-    endCamera: {
-      center:  { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), altitude: 0 },
-      range:   15000,
-      tilt:    45,
-      heading: 0,
-    },
-    durationMillis: FLY_MS,
-  });
+  const cam = {
+    center:  { lat: loc.lat(), lng: loc.lng(), altitude: 0 },
+    range,
+    tilt:    45,
+    heading: 0,
+  };
+  map.flyCameraTo({ endCamera: cam, durationMillis: FLY_MS });
 
   if (_appState === 'recording') {
     recorder.markSearchFlight(FLY_MS);

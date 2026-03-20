@@ -1,20 +1,31 @@
 /**
- * SatTracker — shows a satellite as a coloured dot on the 3D globe.
+ * SatTracker — shows a satellite as a 3-D wireframe model on the globe.
  *
- * Uses the wheretheiss.at API (supports any NORAD ID) to get real-time
- * TLE-propagated position. Renders a filled Polygon3DElement circle.
+ * Uses the wheretheiss.at API to get real-time position. For the ISS, renders
+ * a simplified wireframe: main truss, 8 solar array wings, module stack, and
+ * Zvezda mini-wings.
+ *
+ * ISS_SCALE multiplies real dimensions so the model is visible at orbital
+ * distance. Real truss ≈ 109 m; at scale 50 that becomes ~5.4 km.
  */
+const ISS_SCALE = 100;
+
 class SatTracker {
   constructor(map3d, noradId, color, apiType = 'wheretheiss') {
     this.map      = map3d;
     this.noradId  = noradId;
     this.color    = color;
     this.apiType  = apiType;
-    this._dot      = null;
+    this._lines    = [];
     this._timer    = null;
     this._visible  = false;
     this.lastPos   = null;
+    this._onReady  = null;
+    this._hasDrawn = false;
   }
+
+  // Register a one-shot callback fired after the first position is rendered.
+  onceReady(cb) { this._onReady = cb; }
 
   show() {
     if (this._visible) return;
@@ -23,9 +34,10 @@ class SatTracker {
   }
 
   hide() {
-    this._visible = false;
-    if (this._dot && this._dot.parentNode) this._dot.parentNode.removeChild(this._dot);
-    this._dot = null;
+    this._visible  = false;
+    this._hasDrawn = false;
+    this._onReady  = null;
+    this._clearLines();
   }
 
   async fetchPosition() {
@@ -79,46 +91,84 @@ class SatTracker {
   async _update(lat, lng, altitudeM) {
     if (!this._visible) return;
 
-    const { Polygon3DElement, AltitudeMode } =
-      await google.maps.importLibrary('maps3d');
+    const { Polyline3DElement, AltitudeMode } = await google.maps.importLibrary('maps3d');
 
-    const coords = this._circle(lat, lng, altitudeM, 5000, 32);
+    this._clearLines();
 
-    if (!this._dot) {
-      this._dot = new Polygon3DElement({
-        fillColor:             this.color,
+    const isFirst = !this._hasDrawn;
+    this._hasDrawn = true;
+    this._lines = this._buildISS(lat, lng, altitudeM).map(pts => {
+      const line = new Polyline3DElement({
         strokeColor:           this.color,
         strokeWidth:           2,
         altitudeMode:          AltitudeMode.ABSOLUTE,
-        drawsOccludedSegments: false,
+        drawsOccludedSegments: true,
       });
-      this.map.appendChild(this._dot);
-    }
+      line.path = pts;
+      this.map.appendChild(line);
+      return line;
+    });
 
-    this._dot.path = coords;
+    if (isFirst && this._onReady) {
+      const cb = this._onReady;
+      this._onReady = null;
+      cb();
+    }
   }
 
-  _circle(lat, lng, altitudeM, radiusM, n) {
-    const EARTH_R = 6371000;
-    const latR    = lat * Math.PI / 180;
-    const lngR    = lng * Math.PI / 180;
-    const angDist = radiusM / EARTH_R;
-    const pts     = [];
-
-    for (let i = 0; i <= n; i++) {
-      const bearing = (i / n) * 2 * Math.PI;
-      const pLatR   = Math.asin(
-        Math.sin(latR) * Math.cos(angDist) +
-        Math.cos(latR) * Math.sin(angDist) * Math.cos(bearing)
-      );
-      const pLngR   = lngR + Math.atan2(
-        Math.sin(bearing) * Math.sin(angDist) * Math.cos(latR),
-        Math.cos(angDist) - Math.sin(latR) * Math.sin(pLatR)
-      );
-      pts.push({ lat: pLatR * 180 / Math.PI, lng: pLngR * 180 / Math.PI, altitude: altitudeM });
-    }
-
-    return pts;
+  _clearLines() {
+    this._lines.forEach(l => l.parentNode?.removeChild(l));
+    this._lines = [];
   }
 
+  // Convert local ISS-frame offsets (real metres × ISS_SCALE) to globe coords.
+  // dx = east (+) / west (−), dy = north (+) / south (−), dz = up (+) / down (−)
+  _pt(lat, lng, altM, dx, dy, dz) {
+    const cosLat = Math.cos(lat * Math.PI / 180);
+    return {
+      lat:      lat  + (dy * ISS_SCALE) / 111320,
+      lng:      lng  + (dx * ISS_SCALE) / (111320 * cosLat),
+      altitude: altM + (dz * ISS_SCALE),
+    };
+  }
+
+  _buildISS(lat, lng, altM) {
+    const p = (dx, dy, dz) => this._pt(lat, lng, altM, dx, dy, dz);
+    const s = [];
+
+    // ── TRUSS (runs east–west, Z = +5 above module centreline) ──────────────
+    s.push([p(-54,  0,  5), p(54,  0,  5)]);   // spine
+    s.push([p(-54,  3,  5), p(54,  3,  5)]);   // front rail
+    s.push([p(-54, -3,  5), p(54, -3,  5)]);   // rear rail
+    // Cross-braces at SAW attachment joints and centre
+    for (const x of [-41, -28, 0, 28, 41]) {
+      s.push([p(x, -3, 5), p(x, 3, 5)]);
+    }
+
+    // ── MODULE STACK (runs north–south through the truss centre, Z = 0) ─────
+    s.push([p(-2, -38, 0), p(-2,  13, 0)]);   // port wall
+    s.push([p( 2, -38, 0), p( 2,  13, 0)]);   // starboard wall
+    s.push([p(-2, -38, 0), p( 2, -38, 0)]);   // aft cap (Zvezda end)
+    s.push([p(-2,  13, 0), p( 2,  13, 0)]);   // fore cap (Harmony end)
+    s.push([p(  0,  0, 0), p(  0,  0,  5)]);  // vertical strut up to truss
+
+    // ── SOLAR ARRAY WINGS (8 panels — 4 pairs at X = ±28 and ±41) ──────────
+    // Real dimensions: 35 m tall, 12 m wide. Upper wing extends +Z, lower −Z.
+    for (const x of [-41, -28, 28, 41]) {
+      const x0 = x - 6, x1 = x + 6;
+      // Upper wing rectangle + midline
+      s.push([p(x0, 0, 5), p(x1, 0, 5), p(x1, 0, 40), p(x0, 0, 40), p(x0, 0, 5)]);
+      s.push([p(x0, 0, 22), p(x1, 0, 22)]);
+      // Lower wing rectangle + midline
+      s.push([p(x0, 0, 5), p(x1, 0, 5), p(x1, 0, -30), p(x0, 0, -30), p(x0, 0, 5)]);
+      s.push([p(x0, 0, -12), p(x1, 0, -12)]);
+    }
+
+    // ── ZVEZDA MINI-WINGS (small panels at aft end, extend east–west) ───────
+    const sy = -32;
+    s.push([p(-15, sy, 0), p(-5, sy, 0)]);
+    s.push([p(  5, sy, 0), p(15, sy, 0)]);
+
+    return s;
+  }
 }
